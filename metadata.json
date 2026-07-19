@@ -1,0 +1,6 @@
+{
+  "name": "College Management System",
+  "description": "A full-stack college management system featuring role-based portals (student, faculty, librarian, principal), course enrollment, grade tracking, automated scheduling, and a secure database.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

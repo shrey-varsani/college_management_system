@@ -1,0 +1,349 @@
+import { useState } from "react";
+import { Provider, useSelector, useDispatch } from "react-redux";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { Toaster, toast } from "react-hot-toast";
+import { motion, AnimatePresence } from "motion/react";
+import api from "./lib/api";
+import { store, RootState, setAuth, logout, toggleSidebar, toggleTheme } from "./lib/store";
+
+import {
+  School,
+  Lock,
+  Mail,
+  LayoutDashboard,
+  Calendar,
+  Award,
+  Library,
+  BookOpen,
+  ArrowRight,
+  Menu,
+  Brain,
+  KeyRound,
+  Sun,
+  Moon
+} from "lucide-react";
+
+import Header from "./components/Header";
+import CalendarView from "./components/CalendarView";
+import GradeBook from "./components/GradeBook";
+import CourseCatalog from "./components/CourseCatalog";
+import LibraryManager from "./components/LibraryManager";
+import PrincipalDashboard from "./components/PrincipalDashboard";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+function MainPortal() {
+  const { user, sidebarOpen } = useSelector((state: RootState) => state.app);
+  const dispatch = useDispatch();
+
+  // Active workspace tab
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (!user) return "login";
+    if (user.role === "principal") return "dashboard";
+    if (user.role === "librarian") return "library";
+    if (user.role === "faculty") return "grades";
+    return "catalog";
+  });
+
+  // Determine tabs available to this role
+  const getTabsForRole = () => {
+    if (!user) return [];
+    switch (user.role) {
+      case "principal":
+        return [
+          { id: "dashboard", label: "Executive Office", icon: LayoutDashboard },
+          { id: "catalog", label: "Course Catalog", icon: BookOpen },
+          { id: "calendar", label: "Institution Calendar", icon: Calendar },
+          { id: "library", label: "Library Catalog", icon: Library },
+        ];
+      case "faculty":
+        return [
+          { id: "grades", label: "Grade Book Evaluations", icon: Award },
+          { id: "calendar", label: "Class Timetable", icon: Calendar },
+          { id: "catalog", label: "Course Catalog", icon: BookOpen },
+          { id: "library", label: "Library Catalog", icon: Library },
+        ];
+      case "librarian":
+        return [
+          { id: "library", label: "Library Manager", icon: Library },
+          { id: "catalog", label: "Course Catalog", icon: BookOpen },
+        ];
+      default: // student
+        return [
+          { id: "catalog", label: "Course Catalog", icon: BookOpen },
+          { id: "grades", label: "Grade Transcript", icon: Award },
+          { id: "calendar", label: "My Class Timetable", icon: Calendar },
+          { id: "library", label: "Library Loans", icon: Library },
+        ];
+    }
+  };
+
+  const tabs = getTabsForRole();
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    if (window.innerWidth < 768) {
+      dispatch(toggleSidebar());
+    }
+  };
+
+  // Rendering Active Component Tab
+  const renderActiveTabContent = () => {
+    switch (activeTab) {
+      case "dashboard":
+        return <PrincipalDashboard />;
+      case "catalog":
+        return <CourseCatalog />;
+      case "calendar":
+        return <CalendarView />;
+      case "library":
+        return <LibraryManager />;
+      case "grades":
+        return <GradeBook />;
+      default:
+        return (
+          <div className="p-8 text-zinc-400 font-mono text-xs">
+            Section loading... Choose a tab from the sidebar directory.
+          </div>
+        );
+    }
+  };
+
+  // If NOT authenticated, show premium Slate Login Panel
+  if (!user) {
+    return <LoginPanel />;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-zinc-950 dark:text-zinc-100 flex flex-col transition-colors duration-200">
+      {/* Dynamic Header */}
+      <Header onTabChange={setActiveTab} activeTab={activeTab} />
+
+      <div className="flex-1 flex relative">
+        {/* Navigation side rail */}
+        <AnimatePresence mode="wait">
+          {sidebarOpen && (
+            <motion.aside
+              initial={{ x: -240, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -240, opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="fixed md:static inset-y-16 left-0 z-30 w-60 border-r border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-4 flex flex-col justify-between transition-colors duration-200"
+            >
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-sans font-bold tracking-widest text-slate-400 dark:text-zinc-500 uppercase px-3 py-2">
+                  Academic Workspace
+                </span>
+
+                <nav className="flex flex-col gap-1">
+                  {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const active = activeTab === tab.id;
+
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => handleTabChange(tab.id)}
+                        className={`w-full text-left rounded-lg px-3 py-2 flex items-center gap-2.5 font-sans text-xs font-semibold tracking-tight transition duration-100 ${
+                          active
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-white"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              {/* Institution Sign */}
+              <div className="bg-slate-50 border border-slate-200 dark:bg-zinc-900/50 dark:border-zinc-900 rounded-lg p-3 text-[10px] text-slate-500 dark:text-zinc-500 font-mono leading-relaxed">
+                <span className="font-semibold block text-slate-700 dark:text-zinc-400">Institutional Registry</span>
+                <span>Active Term: Fall 2026</span>
+                <span className="block">Status: Connected Relational DB</span>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+
+        {/* Workspace panel */}
+        <main className="flex-1 overflow-x-hidden min-h-full">
+          {renderActiveTabContent()}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// Slate Login Panel component
+function LoginPanel() {
+  const dispatch = useDispatch();
+  const theme = useSelector((state: RootState) => state.app.theme);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("password");
+  const [loading, setLoading] = useState(false);
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error("Please supply your institutional email address");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await api.post("/auth/login", { email, password });
+      dispatch(setAuth({ user: res.data.user, token: res.data.token }));
+      toast.success(`Welcome back, ${res.data.user.fullName}!`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Invalid credentials. Try our selector below.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectQuickCreds = (quickEmail: string) => {
+    setEmail(quickEmail);
+    setPassword("password");
+    toast(`Copied ${quickEmail.split("@")[0]} credentials!`, { icon: "🔑" });
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col justify-center items-center px-4 relative overflow-hidden transition-colors duration-200">
+      {/* Floating Theme Toggle in Login Panel */}
+      <div className="absolute top-4 right-4 z-20">
+        <button
+          onClick={() => dispatch(toggleTheme())}
+          className="p-2.5 rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 text-slate-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition shadow-sm"
+          title={theme === "dark" ? "Switch to Light Mode" : "Switch to Deep Navy Theme"}
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4 text-amber-500 animate-pulse" /> : <Moon className="h-4 w-4 text-slate-600" />}
+        </button>
+      </div>
+
+      {/* Decorative gradient blur background */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-sm flex flex-col gap-6 z-10">
+        {/* Branding header */}
+        <div className="flex flex-col items-center text-center gap-2">
+          <div className="p-3 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl text-indigo-500">
+            <School className="h-8 w-8" />
+          </div>
+          <h1 className="font-neon text-2xl tracking-wide text-slate-900 dark:text-white mt-1">
+            College Management Portal
+          </h1>
+          <p className="text-slate-500 dark:text-zinc-500 text-xs">
+            Provide your academic credentials to access your administrative suite.
+          </p>
+        </div>
+
+        {/* Input box */}
+        <div className="rounded-2xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 shadow-xl dark:shadow-2xl">
+          <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
+            <div>
+              <label className="text-[10px] font-sans tracking-wider font-bold text-slate-500 dark:text-zinc-500 block mb-1 uppercase">
+                Academic Email Address
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 dark:text-zinc-500">
+                  <Mail className="h-3.5 w-3.5" />
+                </span>
+                <input
+                  type="email"
+                  placeholder="principal@college.edu"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900/50 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-sans tracking-wider font-bold text-slate-500 dark:text-zinc-500 block mb-1 uppercase">
+                Security Password
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 dark:text-zinc-500">
+                  <Lock className="h-3.5 w-3.5" />
+                </span>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900/50 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1.5 transition mt-2 shadow-lg disabled:opacity-50"
+            >
+              <span>{loading ? "Verifying Credentials..." : "Access Suite Portal"}</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </form>
+        </div>
+
+        {/* DX/User-friendly auto-credential select drawer */}
+        <div className="rounded-xl border border-slate-200 bg-slate-100/40 dark:border-zinc-900 dark:bg-zinc-900/10 p-4 flex flex-col gap-2">
+          <span className="font-sans font-bold text-[10px] text-slate-600 dark:text-zinc-400 flex items-center gap-1 uppercase tracking-wide">
+            <KeyRound className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+            Quick Access Demo Accounts (Password: "password")
+          </span>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <button
+              onClick={() => handleSelectQuickCreds("principal@college.edu")}
+              className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 dark:border-rose-500/20 text-[10px] font-sans font-bold px-2 py-1.5 rounded hover:scale-102 transition"
+            >
+              Principal
+            </button>
+            <button
+              onClick={() => handleSelectQuickCreds("student@college.edu")}
+              className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 dark:border-emerald-500/20 text-[10px] font-sans font-bold px-2 py-1.5 rounded hover:scale-102 transition"
+            >
+              Student
+            </button>
+            <button
+              onClick={() => handleSelectQuickCreds("faculty@college.edu")}
+              className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 dark:border-amber-500/20 text-[10px] font-sans font-bold px-2 py-1.5 rounded hover:scale-102 transition"
+            >
+              Faculty (Prof)
+            </button>
+            <button
+              onClick={() => handleSelectQuickCreds("librarian@college.edu")}
+              className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 dark:border-indigo-500/20 text-[10px] font-sans font-bold px-2 py-1.5 rounded hover:scale-102 transition"
+            >
+              Librarian
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <MainPortal />
+        <Toaster position="top-right" toastOptions={{ style: { background: "#09090b", color: "#f4f4f5", border: "1px solid #27272a" } }} />
+      </QueryClientProvider>
+    </Provider>
+  );
+}

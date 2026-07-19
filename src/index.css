@@ -1,0 +1,23 @@
+@import url('https://fonts.cdnfonts.com/css/sansation');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Tilt+Neon&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Sansation", ui-sans-serif, system-ui, sans-serif;
+  --font-grotesk: "Space Grotesk", sans-serif;
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-neon: "Tilt Neon", sans-serif;
+
+  --text-display-hero: 64px;
+  --text-hero: 48px;
+  --text-page-title: 36px;
+  --text-section-heading: 28px;
+  --text-card-heading: 22px;
+  --text-sub-heading: 18px;
+  --text-body: 16px;
+  --text-small: 14px;
+  --text-caption: 12px;
+}
+
+@variant dark (&:where(.dark, .dark *));
+

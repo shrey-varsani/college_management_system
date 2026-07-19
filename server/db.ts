@@ -59,6 +59,9 @@ export interface LibraryBook {
   category: string;
   totalCopies: number;
   availableCopies: number;
+  publisher?: string;
+  publishYear?: number;
+  shelfLocation?: string;
 }
 
 export interface LibraryBorrow {
@@ -69,6 +72,28 @@ export interface LibraryBorrow {
   dueDate: string;
   returnDate: string | null;
   status: "borrowed" | "returned" | "overdue";
+  renewalCount?: number;
+}
+
+export interface LibraryReservation {
+  id: string;
+  bookId: string;
+  studentId: string;
+  studentEmail: string;
+  reserveDate: string;
+  status: "pending" | "approved" | "cancelled" | "fulfilled";
+}
+
+export interface LibraryFine {
+  id: string;
+  borrowId: string;
+  studentId: string;
+  studentEmail: string;
+  amount: number;
+  paidAmount: number;
+  status: "pending" | "paid";
+  dueDate: string;
+  paymentDate: string | null;
 }
 
 export interface Attendance {
@@ -184,6 +209,8 @@ interface DatabaseSchema {
   grades: Grade[];
   libraryBooks: LibraryBook[];
   libraryBorrows: LibraryBorrow[];
+  libraryReservations: LibraryReservation[];
+  libraryFines: LibraryFine[];
   attendance: Attendance[];
   examMarks: ExamMarkEntry[];
   examAuditLogs: ExamAuditLog[];
@@ -442,6 +469,8 @@ async function getInitialData(): Promise<DatabaseSchema> {
     grades,
     libraryBooks,
     libraryBorrows,
+    libraryReservations: [],
+    libraryFines: [],
     attendance: [],
     examMarks: [],
     examAuditLogs: [],
@@ -487,6 +516,12 @@ export class CollegeDatabase {
     if (!data.notifications) {
       data.notifications = [];
     }
+    if (!data.libraryReservations) {
+      data.libraryReservations = [];
+    }
+    if (!data.libraryFines) {
+      data.libraryFines = [];
+    }
     return data;
   }
 
@@ -529,6 +564,14 @@ export class CollegeDatabase {
     return this.load().libraryBorrows;
   }
 
+  public static getLibraryReservations(): LibraryReservation[] {
+    return this.load().libraryReservations;
+  }
+
+  public static getLibraryFines(): LibraryFine[] {
+    return this.load().libraryFines;
+  }
+
   // Set updates
   public static saveUsers(users: User[]) {
     const data = this.load();
@@ -563,6 +606,18 @@ export class CollegeDatabase {
   public static saveLibraryBorrows(borrows: LibraryBorrow[]) {
     const data = this.load();
     data.libraryBorrows = borrows;
+    this.save(data);
+  }
+
+  public static saveLibraryReservations(reservations: LibraryReservation[]) {
+    const data = this.load();
+    data.libraryReservations = reservations;
+    this.save(data);
+  }
+
+  public static saveLibraryFines(fines: LibraryFine[]) {
+    const data = this.load();
+    data.libraryFines = fines;
     this.save(data);
   }
 

@@ -62,6 +62,9 @@ export interface LibraryBook {
   category: string;
   totalCopies: number;
   availableCopies: number;
+  publisher?: string;
+  publishYear?: number;
+  shelfLocation?: string;
 }
 
 export interface LibraryBorrow {
@@ -72,6 +75,28 @@ export interface LibraryBorrow {
   dueDate: string;
   returnDate: string | null;
   status: "borrowed" | "returned" | "overdue";
+  renewalCount?: number;
+}
+
+export interface LibraryReservation {
+  id: string;
+  bookId: string;
+  studentId: string;
+  studentEmail: string;
+  reserveDate: string;
+  status: "pending" | "approved" | "cancelled" | "fulfilled";
+}
+
+export interface LibraryFine {
+  id: string;
+  borrowId: string;
+  studentId: string;
+  studentEmail: string;
+  amount: number;
+  paidAmount: number;
+  status: "pending" | "paid";
+  dueDate: string;
+  paymentDate: string | null;
 }
 
 export interface ExamMarkEntry {

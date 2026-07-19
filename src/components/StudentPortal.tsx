@@ -20,6 +20,8 @@ import {
   Unlock,
   Key,
   Eye,
+  X,
+  Printer,
   Download,
   Upload,
   Search,
@@ -633,12 +635,13 @@ export function StudentProfile() {
               <h3 className="font-sans font-bold text-sm text-slate-950 dark:text-zinc-50">Change Portal Password</h3>
             </div>
 
-            <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
+            <form onSubmit={handleChangePasswordSubmit} className="space-y-4" autoComplete="off">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-sans">
                 <div>
                   <label className="block text-slate-500 dark:text-zinc-400 font-semibold mb-1">Current Password</label>
                   <input
                     type="password"
+                    autoComplete="new-password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition"
@@ -649,6 +652,7 @@ export function StudentProfile() {
                   <label className="block text-slate-500 dark:text-zinc-400 font-semibold mb-1">New Password</label>
                   <input
                     type="password"
+                    autoComplete="new-password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition"
@@ -659,6 +663,7 @@ export function StudentProfile() {
                   <label className="block text-slate-500 dark:text-zinc-400 font-semibold mb-1">Confirm New Password</label>
                   <input
                     type="password"
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 transition"
@@ -1314,6 +1319,8 @@ export function StudentAssignments() {
 export function StudentExamination() {
   const [ticketReleased, setTicketReleased] = useState(true);
   const [downloadingMark, setDownloadingMark] = useState(false);
+  const [downloadingTicket, setDownloadingTicket] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const { user } = useSelector((state: RootState) => state.app);
 
   const { data: examMarks = [] } = useQuery<any[]>({
@@ -1338,6 +1345,329 @@ export function StudentExamination() {
       setDownloadingMark(false);
       window.print(); // Easy printable standard!
       toast.success("Academic report compiled. Printed to standard print device.");
+    }, 1500);
+  };
+
+  const handleDownloadHallTicket = () => {
+    setDownloadingTicket(true);
+    setTimeout(() => {
+      setDownloadingTicket(false);
+      
+      const ticketHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CampusFlow University Hall Ticket - Semester V</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #333;
+      line-height: 1.5;
+      padding: 40px;
+      max-width: 800px;
+      margin: 40px auto;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      border-radius: 8px;
+      background-color: #ffffff;
+    }
+    .header-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px double #4f46e5;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .logo-icon {
+      width: 50px;
+      height: 50px;
+      background: #4f46e5;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .university-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e1b4b;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    .university-sub {
+      font-size: 11px;
+      color: #4f46e5;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin: 2px 0 0 0;
+      letter-spacing: 1px;
+    }
+    .badge {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .title-banner {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .title-banner h2 {
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #1e293b;
+      margin: 0;
+      font-weight: 700;
+    }
+    .title-banner p {
+      font-size: 11px;
+      color: #64748b;
+      margin: 5px 0 0 0;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    .info-item {
+      font-size: 12px;
+    }
+    .info-label {
+      color: #64748b;
+      font-weight: 500;
+      text-transform: uppercase;
+      font-size: 10px;
+      margin-bottom: 2px;
+    }
+    .info-value {
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .exam-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 35px;
+    }
+    .exam-table th {
+      background: #1e293b;
+      color: white;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 10px 12px;
+      letter-spacing: 0.5px;
+    }
+    .exam-table td {
+      padding: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 12px;
+    }
+    .exam-table tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .exam-table .code {
+      font-family: monospace;
+      font-weight: 700;
+      color: #4f46e5;
+    }
+    .instructions-box {
+      border: 1px dashed #cbd5e1;
+      background: #fafaf9;
+      border-radius: 6px;
+      padding: 18px;
+      margin-bottom: 40px;
+    }
+    .instructions-box h4 {
+      margin: 0 0 8px 0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #475569;
+    }
+    .instructions-box ul {
+      margin: 0;
+      padding-left: 20px;
+      font-size: 11px;
+      color: #64748b;
+    }
+    .instructions-box li {
+      margin-bottom: 5px;
+    }
+    .footer-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: 50px;
+    }
+    .signature-container {
+      text-align: center;
+      width: 180px;
+    }
+    .signature-line {
+      border-bottom: 1px solid #94a3b8;
+      margin-bottom: 5px;
+      height: 40px;
+    }
+    .signature-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #475569;
+    }
+    .actions-bar {
+      margin-top: 40px;
+      text-align: center;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 20px;
+    }
+    .btn-print {
+      background: #4f46e5;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(79,70,229,0.2);
+      transition: background 0.2s;
+    }
+    .btn-print:hover {
+      background: #4338ca;
+    }
+    @media print {
+      body {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        margin: 0;
+      }
+      .actions-bar {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-container">
+    <div class="logo-section">
+      <div class="logo-icon">C</div>
+      <div>
+        <h1 class="university-title">CampusFlow University</h1>
+        <p class="university-sub">Office of the Controller of Examinations</p>
+      </div>
+    </div>
+    <div class="badge">Verified Permit</div>
+  </div>
+
+  <div class="title-banner">
+    <h2>Academic Entry Permit & Hall Ticket</h2>
+    <p>Semester V Final Examinations • Cycle of July/August 2026</p>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="info-label">Candidate Name</div>
+      <div class="info-value">${user?.fullName || "Student Name"}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Permit Code</div>
+      <div class="info-value">HT-2026-0820CS</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Student Email & ID</div>
+      <div class="info-value">${user?.email || "student@college.edu"} (ID: ${user?.id || "STU-1024"})</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Department / Stream</div>
+      <div class="info-value">${user?.department || "Computer Science"}</div>
+    </div>
+  </div>
+
+  <table class="exam-table">
+    <thead>
+      <tr>
+        <th style="width: 15%">Code</th>
+        <th style="width: 45%">Subject / Paper Title</th>
+        <th style="width: 15%">Exam Date</th>
+        <th style="width: 15%">Session</th>
+        <th style="width: 15%">Venue</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${examSchedule.map(s => `
+        <tr>
+          <td class="code">${s.code}</td>
+          <td style="font-weight: 600; color: #1e293b;">${s.name}</td>
+          <td style="font-family: monospace;">${s.date}</td>
+          <td>${s.session}</td>
+          <td style="font-weight: 500;">${s.venue}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div class="instructions-box">
+    <h4>Candidate Rules & Directions</h4>
+    <ul>
+      <li>Candidates are instructed to bring this printed Admit Card and official Student ID to every examination trial.</li>
+      <li>Entry is barred 30 minutes after the commencement of the writing cycle.</li>
+      <li>Smartwatches, programmable calculators, smart devices, and unauthorized literature are strictly banned inside the halls.</li>
+      <li>Violation of examination rules will lead to immediate cancellation of candidature.</li>
+    </ul>
+  </div>
+
+  <div class="footer-section">
+    <div>
+      <p style="font-size: 10px; color: #94a3b8; margin: 0; font-family: monospace;">Issued on: 2026-07-19 01:48 (UTC)</p>
+      <p style="font-size: 10px; color: #94a3b8; margin: 2px 0 0 0; font-family: monospace;">IP Security Signature: Hash Verified</p>
+    </div>
+    <div class="signature-container">
+      <div class="signature-line" style="display: flex; align-items: center; justify-content: center;">
+        <span style="font-family: 'Georgia', serif; font-style: italic; font-size: 18px; color: #4f46e5; opacity: 0.85;">Registrar.CF</span>
+      </div>
+      <div class="signature-title">Controller of Examinations</div>
+    </div>
+  </div>
+
+  <div class="actions-bar">
+    <button class="btn-print" onclick="window.print()">Print Admit Card / Save as PDF</button>
+  </div>
+</body>
+</html>
+      `;
+
+      const blob = new Blob([ticketHtml], { type: "text/html;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "Hall_Ticket_HT-2026-0820CS.html");
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("Semester V Hall Ticket downloaded! Open the file to view or print.");
     }, 1500);
   };
 
@@ -1389,21 +1719,254 @@ export function StudentExamination() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-zinc-850">
+          <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 dark:border-zinc-850">
+            <button 
+              onClick={handleDownloadHallTicket}
+              disabled={downloadingTicket}
+              className="bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 disabled:opacity-50 text-white dark:text-zinc-950 font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-2"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {downloadingTicket ? "Compiling PDF..." : "Generate Hall Ticket"}
+            </button>
             <button 
               onClick={() => {
-                toast.success("Hall Ticket generated! Preparing printable PDF view.");
-                window.print();
+                setShowPreview(!showPreview);
+                if (!showPreview) {
+                  setTimeout(() => {
+                    document.getElementById("hall-ticket-preview-anchor")?.scrollIntoView({ behavior: "smooth" });
+                  }, 100);
+                }
               }}
-              className="bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold px-4 py-2 rounded-lg text-xs transition"
+              className="border border-slate-200 hover:bg-slate-50 dark:border-zinc-800 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-2"
             >
-              Generate Hall Ticket
+              <Eye className="h-3.5 w-3.5" />
+              {showPreview ? "Hide Preview" : "Preview Permit Card"}
             </button>
-            <span className="font-mono text-[9px] text-slate-400">Permit Code: HT-2026-0820CS</span>
+            <span className="font-mono text-[9px] text-slate-400 sm:ml-auto">Permit Code: HT-2026-0820CS</span>
           </div>
         </div>
 
       </div>
+
+      <AnimatePresence>
+        {showPreview && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden p-6 md:p-8"
+            id="hall-ticket-preview-anchor"
+          >
+            {/* Header controls inside preview card */}
+            <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-mono font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Live Document Preview</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadHallTicket}
+                  disabled={downloadingTicket}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {downloadingTicket ? "Downloading..." : "Download Admit Card"}
+                </button>
+                <button
+                  onClick={() => setShowPreview(false)}
+                  className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-400 p-1.5 rounded-lg transition"
+                  title="Close Preview"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Simulated Official Physical Admit Card (Paper Look) */}
+            <div className="bg-[#fcfdfd] text-slate-800 border-2 border-slate-300 rounded-lg p-6 md:p-8 relative overflow-hidden shadow-inner max-w-4xl mx-auto font-sans">
+              
+              {/* Decorative watermarked background text */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
+                <span className="text-8xl font-bold font-sans rotate-12">CAMPUSFLOW</span>
+              </div>
+
+              {/* Watermark Logo Icon in center background */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.02] pointer-events-none select-none">
+                <GraduationCap className="w-96 h-96" />
+              </div>
+
+              {/* Top Banner with University Header */}
+              <div className="border-b-4 border-double border-indigo-900 pb-5 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-center md:text-left">
+                  <div className="w-14 h-14 bg-indigo-900 text-white rounded-full flex items-center justify-center font-bold text-2xl shadow-md border border-indigo-800">
+                    C
+                  </div>
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold tracking-tight text-indigo-950 font-sans">CAMPUSFLOW UNIVERSITY</h2>
+                    <p className="text-[10px] uppercase font-bold text-indigo-600 tracking-widest mt-0.5">Office of the Controller of Examinations</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Established under University Act, Code: CF-2026</p>
+                  </div>
+                </div>
+                <div className="text-center md:text-right">
+                  <div className="inline-block bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                    Verified Permit
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-mono mt-2">Permit: HT-2026-0820CS</p>
+                </div>
+              </div>
+
+              {/* Document Title Banner */}
+              <div className="bg-indigo-950 text-white text-center py-2.5 px-4 rounded-md mb-6 shadow-sm">
+                <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest">Official Entry Permit & Hall Ticket</h3>
+                <p className="text-[9px] text-indigo-200 uppercase font-mono mt-0.5">Semester V Examinations • July / August 2026 Cycle</p>
+              </div>
+
+              {/* Grid: Candidate Photo and Personal Details */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start mb-6 pb-6 border-b border-slate-200">
+                {/* Simulated Candidate Photo */}
+                <div className="col-span-1 flex flex-col items-center">
+                  <div className="w-28 h-32 border-2 border-slate-300 bg-slate-50 rounded flex flex-col items-center justify-center relative overflow-hidden shadow-sm">
+                    <UserIcon className="h-16 w-16 text-slate-400 mt-2" />
+                    <div className="absolute bottom-0 inset-x-0 bg-slate-200/80 text-[9px] font-bold font-mono text-center text-slate-600 py-1 uppercase tracking-wider border-t border-slate-300">
+                      CANDIDATE
+                    </div>
+                  </div>
+                  <div className="text-[9px] text-slate-400 font-mono mt-1 text-center">System Hash Verified</div>
+                </div>
+
+                {/* Candidate Personal Information */}
+                <div className="col-span-1 md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-xs">
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Candidate Full Name</span>
+                    <span className="font-bold text-slate-800 text-sm">{user?.fullName || "Student Candidate"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Student ID Number</span>
+                    <span className="font-mono font-bold text-slate-800">{user?.id || "STU-1024-CF"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Department / Stream</span>
+                    <span className="font-medium text-slate-800">{user?.department || "Computer Science & Engineering"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Registered Email Address</span>
+                    <span className="font-medium text-slate-800 font-mono">{user?.email || "student@college.edu"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Examination Center</span>
+                    <span className="font-semibold text-slate-800">Academic Wing B, Campus-I</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Academic Term</span>
+                    <span className="font-semibold text-slate-800">Year III, Semester V</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Exam Schedule Table inside Preview */}
+              <div className="mb-6">
+                <h4 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2.5">Permitted Examination Papers</h4>
+                <div className="overflow-hidden border border-slate-200 rounded-md shadow-sm">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-200 text-slate-600 font-bold uppercase text-[9px] tracking-wider">
+                        <th className="py-2.5 px-3">Subject Code</th>
+                        <th className="py-2.5 px-3">Subject Name & Paper Title</th>
+                        <th className="py-2.5 px-3">Exam Date</th>
+                        <th className="py-2.5 px-3">Session & Time</th>
+                        <th className="py-2.5 px-3 text-right">Venue Code</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {examSchedule.map((exam) => (
+                        <tr key={exam.code} className="hover:bg-slate-50/50">
+                          <td className="py-2.5 px-3 font-mono font-bold text-indigo-700">{exam.code}</td>
+                          <td className="py-2.5 px-3 font-medium text-slate-900">{exam.name}</td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600">{exam.date}</td>
+                          <td className="py-2.5 px-3 text-slate-500 text-[11px]">{exam.session}</td>
+                          <td className="py-2.5 px-3 text-right font-semibold text-slate-700 font-mono">{exam.venue}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Instructions and Rules section */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 items-end">
+                <div className="col-span-2 border-2 border-dashed border-slate-200 bg-slate-50/50 rounded p-4 text-[10px] text-slate-500">
+                  <h4 className="font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5 text-[10px]">
+                    <CheckCircle className="h-3.5 w-3.5 text-indigo-600" /> Mandatory Rules for Candidates
+                  </h4>
+                  <ul className="list-decimal list-inside space-y-1">
+                    <li>Candidates must report to the examination hall 30 minutes prior to session start.</li>
+                    <li>Possession of smartwatches, smartphones, or loose notes is strictly forbidden.</li>
+                    <li>This Permit Card must be signed by the invigilator at the start of each trial.</li>
+                    <li>Invigilators retain absolute authority to enforce discipline protocols.</li>
+                  </ul>
+                </div>
+
+                {/* Seal Stamp and Authorized Signature representation */}
+                <div className="col-span-1 flex flex-col items-center justify-end relative">
+                  {/* Circular SealStamp */}
+                  <div className="absolute -top-12 right-24 w-20 h-20 border-2 border-emerald-500/30 rounded-full flex flex-col items-center justify-center rotate-12 scale-90 select-none pointer-events-none bg-emerald-50/10">
+                    <span className="text-[7px] text-emerald-500 font-bold uppercase text-center tracking-tight">CAMPUSFLOW</span>
+                    <span className="text-[8px] text-emerald-600 font-extrabold uppercase text-center border-y border-emerald-500/20 py-0.5 my-0.5">APPROVED</span>
+                    <span className="text-[6px] text-emerald-500 font-mono font-bold uppercase text-center">OFFICIAL SEAL</span>
+                  </div>
+
+                  <div className="w-44 text-center mt-6">
+                    <div className="h-10 flex items-center justify-center font-serif text-lg text-indigo-700 font-bold tracking-wide italic select-none">
+                      Registrar.CF
+                    </div>
+                    <div className="border-t border-slate-300 pt-1">
+                      <span className="block text-[9px] uppercase font-bold text-slate-400 tracking-wider">Controller of Examinations</span>
+                      <span className="block text-[8px] text-slate-400 font-mono mt-0.5">CampusFlow University Board</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barcode Mockup */}
+              <div className="border-t border-slate-200 mt-6 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[9px] text-slate-400 font-mono">
+                <div>Admit Entry Permitted under CampusFlow Academic Code Section 12-B</div>
+                <div className="flex flex-col items-end">
+                  {/* Barcode bars */}
+                  <div className="flex items-end h-5 gap-[1px] mb-1">
+                    {[2,4,1,3,2,1,5,2,4,1,3,2,1,4,2,3,1,5,2,1,4,3,2].map((w, idx) => (
+                      <div key={idx} className="bg-slate-400" style={{ width: `${w}px`, height: '100%' }} />
+                    ))}
+                  </div>
+                  <span>HT-2026-0820CS-VERIFIED</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Print button below preview */}
+            <div className="flex justify-center gap-3 mt-6 pt-6 border-t border-slate-100 dark:border-zinc-800">
+              <button
+                onClick={() => {
+                  toast.success("Opening standard print window...");
+                  window.print();
+                }}
+                className="bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold px-5 py-2.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Print Admit Card
+              </button>
+              <button
+                onClick={handleDownloadHallTicket}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-5 py-2.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download Admit Card HTML File
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Grid Split: Schedule and Results */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

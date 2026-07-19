@@ -976,7 +976,59 @@ app.put("/api/library/books/:id", authenticateToken, authorizeRoles("librarian")
 
 // Get book borrows
 app.get("/api/library/borrows", authenticateToken, (req, res) => {
+  // Auto calculate overdue and generate/update fines
   const borrows = CollegeDatabase.getLibraryBorrows();
+  const fines = CollegeDatabase.getLibraryFines();
+  const users = CollegeDatabase.getUsers();
+  let dbChanged = false;
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const today = new Date(todayStr);
+
+  borrows.forEach(b => {
+    if (b.status === "borrowed") {
+      const due = new Date(b.dueDate);
+      if (today > due) {
+        b.status = "overdue";
+        dbChanged = true;
+      }
+    }
+
+    if (b.status === "overdue" || (b.status === "returned" && b.returnDate && new Date(b.returnDate) > new Date(b.dueDate))) {
+      const endDate = b.returnDate ? new Date(b.returnDate) : today;
+      const due = new Date(b.dueDate);
+      const diffTime = endDate.getTime() - due.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) {
+        const amount = diffDays * 1.5; // $1.50 fine per day
+        const existingFine = fines.find(f => f.borrowId === b.id);
+        if (!existingFine) {
+          const borrowerUser = users.find(u => u.id === b.studentId);
+          fines.push({
+            id: "fn_" + Math.random().toString(36).substr(2, 9),
+            borrowId: b.id,
+            studentId: b.studentId,
+            studentEmail: borrowerUser ? borrowerUser.email : "unknown@college.edu",
+            amount,
+            paidAmount: 0,
+            status: "pending",
+            dueDate: b.dueDate,
+            paymentDate: null
+          });
+          dbChanged = true;
+        } else if (existingFine.status === "pending" && existingFine.amount !== amount) {
+          existingFine.amount = amount;
+          dbChanged = true;
+        }
+      }
+    }
+  });
+
+  if (dbChanged) {
+    CollegeDatabase.saveLibraryBorrows(borrows);
+    CollegeDatabase.saveLibraryFines(fines);
+  }
+
   if (req.user.role === "student") {
     res.json(borrows.filter(b => b.studentId === req.user.id));
   } else {
@@ -984,17 +1036,17 @@ app.get("/api/library/borrows", authenticateToken, (req, res) => {
   }
 });
 
-// Borrow / Issue a book (Librarian issues to student)
+// Borrow / Issue a book (Librarian issues to student or faculty)
 app.post("/api/library/borrow", authenticateToken, authorizeRoles("librarian"), (req, res) => {
   const { bookId, studentEmail, durationDays } = req.body;
   if (!bookId || !studentEmail) {
-    return res.status(400).json({ message: "Book and Student details required" });
+    return res.status(400).json({ message: "Book and Borrower details required" });
   }
 
   const users = CollegeDatabase.getUsers();
-  const student = users.find(u => u.email.toLowerCase() === studentEmail.toLowerCase() && u.role === "student");
-  if (!student) {
-    return res.status(404).json({ message: "Registered student not found with that email" });
+  const borrower = users.find(u => u.email.toLowerCase() === studentEmail.toLowerCase() && (u.role === "student" || u.role === "faculty"));
+  if (!borrower) {
+    return res.status(404).json({ message: "Registered student or faculty member not found with that email" });
   }
 
   const books = CollegeDatabase.getLibraryBooks();
@@ -1007,6 +1059,22 @@ app.post("/api/library/borrow", authenticateToken, authorizeRoles("librarian"), 
     return res.status(400).json({ message: "All copies of this volume are currently checked out" });
   }
 
+  // Validation: Limit borrowing count (Max 5 for students, 10 for faculty)
+  const borrows = CollegeDatabase.getLibraryBorrows();
+  const activeBorrows = borrows.filter(b => b.studentId === borrower.id && b.status !== "returned");
+  
+  // 1. Prevent duplicate issues
+  const duplicate = activeBorrows.find(b => b.bookId === bookId);
+  if (duplicate) {
+    return res.status(400).json({ message: "This member already has an active borrow record for this book." });
+  }
+
+  // 2. Validate borrowing limits
+  const maxLimit = borrower.role === "faculty" ? 10 : 5;
+  if (activeBorrows.length >= maxLimit) {
+    return res.status(400).json({ message: `Borrower limit reached. ${borrower.role} can have at most ${maxLimit} active books.` });
+  }
+
   // Mark book checked out
   books[bookIndex].availableCopies -= 1;
   CollegeDatabase.saveLibraryBooks(books);
@@ -1015,21 +1083,50 @@ app.post("/api/library/borrow", authenticateToken, authorizeRoles("librarian"), 
   const dueDate = new Date();
   dueDate.setDate(borrowDate.getDate() + (Number(durationDays) || 14));
 
-  const borrows = CollegeDatabase.getLibraryBorrows();
-  const newBorrow: LibraryBorrow = {
+  const newBorrow = {
     id: "brw_" + Math.random().toString(36).substr(2, 9),
     bookId,
-    studentId: student.id,
+    studentId: borrower.id,
     borrowDate: borrowDate.toISOString().split("T")[0],
     dueDate: dueDate.toISOString().split("T")[0],
     returnDate: null,
-    status: "borrowed"
+    status: "borrowed" as const,
+    renewalCount: 0
   };
 
   borrows.push(newBorrow);
   CollegeDatabase.saveLibraryBorrows(borrows);
 
   res.status(201).json(newBorrow);
+});
+
+// Renew borrow loan
+app.post("/api/library/renew/:id", authenticateToken, authorizeRoles("librarian"), (req, res) => {
+  const borrows = CollegeDatabase.getLibraryBorrows();
+  const index = borrows.findIndex(b => b.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ message: "Borrow record not found" });
+  }
+
+  const b = borrows[index];
+  if (b.status === "returned") {
+    return res.status(400).json({ message: "Cannot renew a book that has already been returned" });
+  }
+
+  const renewals = b.renewalCount || 0;
+  if (renewals >= 2) {
+    return res.status(400).json({ message: "Maximum renewal limit (2 times) reached for this checkout" });
+  }
+
+  // Extend due date by 14 days
+  const currentDue = new Date(b.dueDate);
+  currentDue.setDate(currentDue.getDate() + 14);
+  b.dueDate = currentDue.toISOString().split("T")[0];
+  b.status = "borrowed"; // In case it was overdue
+  b.renewalCount = renewals + 1;
+
+  CollegeDatabase.saveLibraryBorrows(borrows);
+  res.json({ message: "Loan renewed successfully. New due date is " + b.dueDate, borrow: b });
 });
 
 // Return borrowed book (Librarian marks returned)
@@ -1059,6 +1156,142 @@ app.post("/api/library/return/:id", authenticateToken, authorizeRoles("librarian
   }
 
   res.json({ message: "Volume returned cleanly and library records synced" });
+});
+
+// Delete a book from catalog (Librarian only)
+app.delete("/api/library/books/:id", authenticateToken, authorizeRoles("librarian"), (req, res) => {
+  const books = CollegeDatabase.getLibraryBooks();
+  const filtered = books.filter(b => b.id !== req.params.id);
+  if (books.length === filtered.length) {
+    return res.status(404).json({ message: "Book catalog item not found" });
+  }
+  CollegeDatabase.saveLibraryBooks(filtered);
+  res.json({ message: "Book deleted successfully." });
+});
+
+// Get book reservations
+app.get("/api/library/reservations", authenticateToken, (req, res) => {
+  const reservations = CollegeDatabase.getLibraryReservations();
+  if (req.user.role === "student") {
+    res.json(reservations.filter(r => r.studentId === req.user.id));
+  } else {
+    res.json(reservations);
+  }
+});
+
+// Create book reservation
+app.post("/api/library/reserve", authenticateToken, (req, res) => {
+  const { bookId, studentEmail } = req.body;
+  if (!bookId) {
+    return res.status(400).json({ message: "Book selection is required" });
+  }
+
+  const users = CollegeDatabase.getUsers();
+  let borrower = req.user;
+  if (req.user.role === "librarian") {
+    if (!studentEmail) {
+      return res.status(400).json({ message: "Borrower email is required when reserving as librarian" });
+    }
+    const found = users.find(u => u.email.toLowerCase() === studentEmail.toLowerCase() && (u.role === "student" || u.role === "faculty"));
+    if (!found) {
+      return res.status(404).json({ message: "Borrower student or faculty not found with that email" });
+    }
+    borrower = found;
+  }
+
+  const books = CollegeDatabase.getLibraryBooks();
+  const book = books.find(b => b.id === bookId);
+  if (!book) {
+    return res.status(404).json({ message: "Book not found" });
+  }
+
+  const reservations = CollegeDatabase.getLibraryReservations();
+  const duplicate = reservations.find(r => r.bookId === bookId && r.studentId === borrower.id && (r.status === "pending" || r.status === "approved"));
+  if (duplicate) {
+    return res.status(400).json({ message: "An active reservation already exists for this book." });
+  }
+
+  const newReservation = {
+    id: "res_" + Math.random().toString(36).substr(2, 9),
+    bookId,
+    studentId: borrower.id,
+    studentEmail: borrower.email,
+    reserveDate: new Date().toISOString().split("T")[0],
+    status: "pending" as const
+  };
+
+  reservations.push(newReservation);
+  CollegeDatabase.saveLibraryReservations(reservations);
+  res.status(201).json(newReservation);
+});
+
+// Approve reservation
+app.post("/api/library/reservations/:id/approve", authenticateToken, authorizeRoles("librarian"), (req, res) => {
+  const reservations = CollegeDatabase.getLibraryReservations();
+  const index = reservations.findIndex(r => r.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ message: "Reservation not found" });
+  }
+
+  reservations[index].status = "approved";
+  CollegeDatabase.saveLibraryReservations(reservations);
+
+  const notifications = CollegeDatabase.getNotifications();
+  notifications.push({
+    id: "not_" + Math.random().toString(36).substr(2, 9),
+    studentId: reservations[index].studentId,
+    title: "Reservation Approved",
+    message: `Your reservation for book has been approved. Please collect it from the counter.`,
+    type: "library",
+    timestamp: new Date().toISOString(),
+    isRead: false
+  });
+  CollegeDatabase.saveNotifications(notifications);
+
+  res.json({ message: "Reservation approved successfully." });
+});
+
+// Cancel reservation
+app.post("/api/library/reservations/:id/cancel", authenticateToken, (req, res) => {
+  const reservations = CollegeDatabase.getLibraryReservations();
+  const index = reservations.findIndex(r => r.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ message: "Reservation not found" });
+  }
+
+  if (req.user.role !== "librarian" && reservations[index].studentId !== req.user.id) {
+    return res.status(403).json({ message: "Unauthorized to cancel this reservation" });
+  }
+
+  reservations[index].status = "cancelled";
+  CollegeDatabase.saveLibraryReservations(reservations);
+  res.json({ message: "Reservation cancelled successfully." });
+});
+
+// Get library fines
+app.get("/api/library/fines", authenticateToken, (req, res) => {
+  const fines = CollegeDatabase.getLibraryFines();
+  if (req.user.role === "student") {
+    res.json(fines.filter(f => f.studentId === req.user.id));
+  } else {
+    res.json(fines);
+  }
+});
+
+// Pay fine
+app.post("/api/library/fines/:id/pay", authenticateToken, authorizeRoles("librarian"), (req, res) => {
+  const fines = CollegeDatabase.getLibraryFines();
+  const index = fines.findIndex(f => f.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ message: "Fine record not found" });
+  }
+
+  fines[index].status = "paid";
+  fines[index].paidAmount = fines[index].amount;
+  fines[index].paymentDate = new Date().toISOString().split("T")[0];
+
+  CollegeDatabase.saveLibraryFines(fines);
+  res.json({ message: "Fine payment recorded successfully.", fine: fines[index] });
 });
 
 // ==========================================

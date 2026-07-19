@@ -1408,11 +1408,13 @@ export default function PrincipalDashboard() {
                         });
                       }}
                       className="flex flex-col gap-4"
+                      autoComplete="off"
                     >
                       <div>
                         <label className="text-[10px] font-bold text-slate-400 block mb-1">Current Password</label>
                         <input
                           type="password"
+                          autoComplete="new-password"
                           required
                           value={currentPassword}
                           onChange={(e) => setCurrentPassword(e.target.value)}
@@ -1424,6 +1426,7 @@ export default function PrincipalDashboard() {
                         <label className="text-[10px] font-bold text-slate-400 block mb-1">New Security Password</label>
                         <input
                           type="password"
+                          autoComplete="new-password"
                           required
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}

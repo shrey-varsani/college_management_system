@@ -141,7 +141,6 @@ function MainPortal() {
       case "librarian":
         return [
           { id: "library", label: "Library Manager", icon: Library },
-          { id: "catalog", label: "Course Catalog", icon: BookOpen },
         ];
       default: // student
         return [

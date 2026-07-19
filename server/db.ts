@@ -14,6 +14,13 @@ export interface User {
   department: string;
   phone: string;
   registrationDate: string;
+  rollNumber?: string;
+  enrollmentNo?: string;
+  branch?: string;
+  semester?: string;
+  section?: string;
+  address?: string;
+  profilePic?: string;
 }
 
 export interface Course {
@@ -75,6 +82,101 @@ export interface Attendance {
   remarks?: string;
 }
 
+export interface ExamMarkEntry {
+  id: string;
+  studentId: string;
+  studentName: string;
+  enrollmentNo: string;
+  academicYear: string;
+  examType: string; // e.g., Internal, Mid Term, End Semester, Practical, Viva, etc.
+  department: string;
+  branch: string;
+  semester: string;
+  section: string;
+  courseId: string; // Subject ID
+  theoryMarks: number;
+  practicalMarks: number;
+  internalMarks: number;
+  assignmentMarks: number;
+  vivaMarks: number;
+  maxTheory: number;
+  maxPractical: number;
+  maxInternal: number;
+  maxAssignment: number;
+  maxViva: number;
+  totalMarks: number;
+  percentage: number;
+  grade: string;
+  status: "Pass" | "Fail";
+  isDraft: boolean;
+  isPublished: boolean;
+}
+
+export interface ExamAuditLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userEmail: string;
+  action: string;
+  details: string;
+}
+
+export interface Assignment {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  maxMarks: number;
+  fileUrl?: string;
+}
+
+export interface AssignmentSubmission {
+  id: string;
+  assignmentId: string;
+  studentId: string;
+  submittedAt: string;
+  fileUrl: string;
+  fileName: string;
+  status: "Submitted" | "Graded" | "Late Submission";
+  score?: number;
+  feedback?: string;
+}
+
+export interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+  category: "college" | "department" | "branch" | "semester" | "event" | "exam";
+  department?: string;
+  branch?: string;
+  semester?: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  studentId: string;
+  studentName: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: "Pending" | "Approved" | "Rejected";
+  appliedOn: string;
+  documentUrl?: string;
+  documentName?: string;
+}
+
+export interface StudentNotification {
+  id: string;
+  studentId: string;
+  title: string;
+  message: string;
+  type: "attendance" | "assignment" | "exam" | "library" | "general";
+  timestamp: string;
+  isRead: boolean;
+}
+
 interface DatabaseSchema {
   users: User[];
   courses: Course[];
@@ -83,6 +185,13 @@ interface DatabaseSchema {
   libraryBooks: LibraryBook[];
   libraryBorrows: LibraryBorrow[];
   attendance: Attendance[];
+  examMarks: ExamMarkEntry[];
+  examAuditLogs: ExamAuditLog[];
+  assignments: Assignment[];
+  assignmentSubmissions: AssignmentSubmission[];
+  notices: Notice[];
+  leaveRequests: LeaveRequest[];
+  notifications: StudentNotification[];
 }
 
 // Ensure the data directory exists
@@ -334,6 +443,13 @@ async function getInitialData(): Promise<DatabaseSchema> {
     libraryBooks,
     libraryBorrows,
     attendance: [],
+    examMarks: [],
+    examAuditLogs: [],
+    assignments: [],
+    assignmentSubmissions: [],
+    notices: [],
+    leaveRequests: [],
+    notifications: [],
   };
 }
 
@@ -349,6 +465,27 @@ export class CollegeDatabase {
     const data = JSON.parse(raw);
     if (!data.attendance) {
       data.attendance = [];
+    }
+    if (!data.examMarks) {
+      data.examMarks = [];
+    }
+    if (!data.examAuditLogs) {
+      data.examAuditLogs = [];
+    }
+    if (!data.assignments) {
+      data.assignments = [];
+    }
+    if (!data.assignmentSubmissions) {
+      data.assignmentSubmissions = [];
+    }
+    if (!data.notices) {
+      data.notices = [];
+    }
+    if (!data.leaveRequests) {
+      data.leaveRequests = [];
+    }
+    if (!data.notifications) {
+      data.notifications = [];
     }
     return data;
   }
@@ -436,6 +573,76 @@ export class CollegeDatabase {
   public static saveAttendance(attendance: Attendance[]) {
     const data = this.load();
     data.attendance = attendance;
+    this.save(data);
+  }
+
+  public static getExamMarks(): ExamMarkEntry[] {
+    return this.load().examMarks;
+  }
+
+  public static saveExamMarks(marks: ExamMarkEntry[]) {
+    const data = this.load();
+    data.examMarks = marks;
+    this.save(data);
+  }
+
+  public static getExamAuditLogs(): ExamAuditLog[] {
+    return this.load().examAuditLogs;
+  }
+
+  public static saveExamAuditLogs(logs: ExamAuditLog[]) {
+    const data = this.load();
+    data.examAuditLogs = logs;
+    this.save(data);
+  }
+
+  public static getAssignments(): Assignment[] {
+    return this.load().assignments;
+  }
+
+  public static saveAssignments(assignments: Assignment[]) {
+    const data = this.load();
+    data.assignments = assignments;
+    this.save(data);
+  }
+
+  public static getAssignmentSubmissions(): AssignmentSubmission[] {
+    return this.load().assignmentSubmissions;
+  }
+
+  public static saveAssignmentSubmissions(submissions: AssignmentSubmission[]) {
+    const data = this.load();
+    data.assignmentSubmissions = submissions;
+    this.save(data);
+  }
+
+  public static getNotices(): Notice[] {
+    return this.load().notices;
+  }
+
+  public static saveNotices(notices: Notice[]) {
+    const data = this.load();
+    data.notices = notices;
+    this.save(data);
+  }
+
+  public static getLeaveRequests(): LeaveRequest[] {
+    return this.load().leaveRequests;
+  }
+
+  public static saveLeaveRequests(requests: LeaveRequest[]) {
+    const data = this.load();
+    data.leaveRequests = requests;
+    this.save(data);
+  }
+
+  public static getNotifications(): StudentNotification[] {
+    return this.load().notifications;
+  }
+
+  public static saveNotifications(notifications: StudentNotification[]) {
+    const data = this.load();
+    data.notifications = notifications;
     this.save(data);
   }
 }

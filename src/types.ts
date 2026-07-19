@@ -6,6 +6,13 @@ export interface User {
   department: string;
   phone: string;
   registrationDate: string;
+  rollNumber?: string;
+  enrollmentNo?: string;
+  branch?: string;
+  semester?: string;
+  section?: string;
+  address?: string;
+  profilePic?: string;
 }
 
 export interface Course {
@@ -65,6 +72,45 @@ export interface LibraryBorrow {
   dueDate: string;
   returnDate: string | null;
   status: "borrowed" | "returned" | "overdue";
+}
+
+export interface ExamMarkEntry {
+  id: string;
+  studentId: string;
+  studentName: string;
+  enrollmentNo: string;
+  academicYear: string;
+  examType: string;
+  department: string;
+  branch: string;
+  semester: string;
+  section: string;
+  courseId: string;
+  theoryMarks: number;
+  practicalMarks: number;
+  internalMarks: number;
+  assignmentMarks: number;
+  vivaMarks: number;
+  maxTheory: number;
+  maxPractical: number;
+  maxInternal: number;
+  maxAssignment: number;
+  maxViva: number;
+  totalMarks: number;
+  percentage: number;
+  grade: string;
+  status: "Pass" | "Fail";
+  isDraft: boolean;
+  isPublished: boolean;
+}
+
+export interface ExamAuditLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userEmail: string;
+  action: string;
+  details: string;
 }
 
 export interface AuthState {

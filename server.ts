@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 
-import { CollegeDatabase, User, Course, Enrollment, Grade, LibraryBook, LibraryBorrow, Attendance } from "./server/db";
+import { CollegeDatabase, User, Course, Enrollment, Grade, LibraryBook, LibraryBorrow, Attendance, ExamMarkEntry } from "./server/db";
 import { runAutomatedScheduler } from "./server/scheduler";
 
 declare global {
@@ -601,6 +601,289 @@ app.delete("/api/attendance/:id", authenticateToken, authorizeRoles("faculty", "
 });
 
 // ==========================================
+// EXAMINATION MARKS ENTRY ENDPOINTS
+// ==========================================
+
+// Get exam marks with strict role-based isolation
+app.get("/api/exam-marks", authenticateToken, (req, res) => {
+  try {
+    const marks = CollegeDatabase.getExamMarks();
+    const courses = CollegeDatabase.getCourses();
+
+    if (req.user.role === "student") {
+      // Students can only view their own marks once published
+      const studentMarks = marks.filter(m => m.studentId === req.user.id && m.isPublished);
+      return res.json(studentMarks);
+    }
+
+    if (req.user.role === "faculty") {
+      // Faculty can only view marks for subjects they are assigned to
+      const facultyCourses = courses.filter(c => c.facultyId === req.user.id).map(c => c.id);
+      const facultyMarks = marks.filter(m => facultyCourses.includes(m.courseId));
+      return res.json(facultyMarks);
+    }
+
+    if (req.user.role === "principal") {
+      // Principal can view all marks
+      return res.json(marks);
+    }
+
+    res.json([]);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to retrieve examination marks", error: error.message });
+  }
+});
+
+// Create/Update/Submit Exam Marks (Faculty and Principal only)
+app.post("/api/exam-marks", authenticateToken, authorizeRoles("faculty", "principal"), (req, res) => {
+  try {
+    const payload = req.body;
+    const entries = Array.isArray(payload) ? payload : [payload];
+
+    if (entries.length === 0) {
+      return res.status(400).json({ message: "No marks entries provided" });
+    }
+
+    const currentMarks = CollegeDatabase.getExamMarks();
+    const courses = CollegeDatabase.getCourses();
+    const users = CollegeDatabase.getUsers();
+    const updatedEntries: typeof currentMarks = [...currentMarks];
+    const savedRecords: any[] = [];
+    const auditLogs = CollegeDatabase.getExamAuditLogs();
+
+    // Group-level checks for faculty permissions
+    for (const entry of entries) {
+      const course = courses.find(c => c.id === entry.courseId);
+      if (!course) {
+        return res.status(404).json({ message: `Course ID ${entry.courseId} not found` });
+      }
+
+      // Check faculty permission
+      if (req.user.role === "faculty" && course.facultyId !== req.user.id) {
+        return res.status(403).json({ message: `Forbidden: You are not assigned to instruct course ${course.code}` });
+      }
+
+      // Extract marks and max limits
+      const theory = Number(entry.theoryMarks || 0);
+      const practical = Number(entry.practicalMarks || 0);
+      const internal = Number(entry.internalMarks || 0);
+      const assignment = Number(entry.assignmentMarks || 0);
+      const viva = Number(entry.vivaMarks || 0);
+
+      const maxTheory = Number(entry.maxTheory ?? 100);
+      const maxPractical = Number(entry.maxPractical ?? 50);
+      const maxInternal = Number(entry.maxInternal ?? 30);
+      const maxAssignment = Number(entry.maxAssignment ?? 20);
+      const maxViva = Number(entry.maxViva ?? 10);
+
+      // Validation
+      if (theory < 0 || theory > maxTheory) {
+        return res.status(400).json({ message: `Invalid theory marks (${theory}) for student ${entry.studentName}. Limit: [0, ${maxTheory}]` });
+      }
+      if (practical < 0 || practical > maxPractical) {
+        return res.status(400).json({ message: `Invalid practical marks (${practical}) for student ${entry.studentName}. Limit: [0, ${maxPractical}]` });
+      }
+      if (internal < 0 || internal > maxInternal) {
+        return res.status(400).json({ message: `Invalid internal marks (${internal}) for student ${entry.studentName}. Limit: [0, ${maxInternal}]` });
+      }
+      if (assignment < 0 || assignment > maxAssignment) {
+        return res.status(400).json({ message: `Invalid assignment marks (${assignment}) for student ${entry.studentName}. Limit: [0, ${maxAssignment}]` });
+      }
+      if (viva < 0 || viva > maxViva) {
+        return res.status(400).json({ message: `Invalid viva marks (${viva}) for student ${entry.studentName}. Limit: [0, ${maxViva}]` });
+      }
+
+      // Find if student actually exists to ensure data consistency
+      const student = users.find(u => u.id === entry.studentId);
+      const studentName = student ? student.fullName : entry.studentName;
+
+      // Check existing records in DB to prevent duplicates or finalized overwrites
+      const existingIndex = updatedEntries.findIndex(
+        m =>
+          m.studentId === entry.studentId &&
+          m.courseId === entry.courseId &&
+          m.academicYear === entry.academicYear &&
+          m.examType === entry.examType &&
+          m.semester === entry.semester &&
+          m.section === entry.section
+      );
+
+      if (existingIndex !== -1) {
+        const existingRecord = updatedEntries[existingIndex];
+        // If final submission (isDraft is false), only principal can unlock or overwrite
+        if (!existingRecord.isDraft && req.user.role === "faculty") {
+          return res.status(400).json({
+            message: `Locked: Marks for student ${studentName} have already been finalized and submitted. Overwrites forbidden without Principal authorization.`
+          });
+        }
+      }
+
+      // Calculations
+      const totalMarks = theory + practical + internal + assignment + viva;
+      const maxTotal = maxTheory + maxPractical + maxInternal + maxAssignment + maxViva;
+      const percentage = maxTotal > 0 ? (totalMarks / maxTotal) * 100 : 0;
+      
+      let grade = "F";
+      if (percentage >= 90) grade = "O";
+      else if (percentage >= 80) grade = "A+";
+      else if (percentage >= 70) grade = "A";
+      else if (percentage >= 60) grade = "B";
+      else if (percentage >= 50) grade = "C";
+      else if (percentage >= 40) grade = "D";
+
+      const status: "Pass" | "Fail" = percentage >= 40 ? "Pass" : "Fail";
+
+      const recordToSave: ExamMarkEntry = {
+        id: existingIndex !== -1 ? updatedEntries[existingIndex].id : "exm_" + Math.random().toString(36).substr(2, 9),
+        studentId: entry.studentId,
+        studentName,
+        enrollmentNo: entry.studentId, // standard student identifier
+        academicYear: entry.academicYear,
+        examType: entry.examType,
+        department: entry.department,
+        branch: entry.branch,
+        semester: entry.semester,
+        section: entry.section,
+        courseId: entry.courseId,
+        theoryMarks: theory,
+        practicalMarks: practical,
+        internalMarks: internal,
+        assignmentMarks: assignment,
+        vivaMarks: viva,
+        maxTheory,
+        maxPractical,
+        maxInternal,
+        maxAssignment,
+        maxViva,
+        totalMarks,
+        percentage,
+        grade,
+        status,
+        isDraft: entry.isDraft !== undefined ? entry.isDraft : true,
+        isPublished: existingIndex !== -1 ? updatedEntries[existingIndex].isPublished : false
+      };
+
+      if (existingIndex !== -1) {
+        updatedEntries[existingIndex] = recordToSave;
+      } else {
+        updatedEntries.push(recordToSave);
+      }
+      savedRecords.push(recordToSave);
+    }
+
+    // Save back to DB
+    CollegeDatabase.saveExamMarks(updatedEntries);
+
+    // Write audit log
+    const auditAction = entries[0].isDraft ? "Draft Saved" : "Final Submission";
+    const courseNames = entries.map(e => courses.find(c => c.id === e.courseId)?.code).filter(Boolean);
+    const auditLogEntry = {
+      id: "aud_" + Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toISOString(),
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: auditAction,
+      details: `${auditAction} for course(s) [${[...new Set(courseNames)].join(", ")}] of ${entries.length} student entries.`
+    };
+    auditLogs.push(auditLogEntry);
+    CollegeDatabase.saveExamAuditLogs(auditLogs);
+
+    res.json({
+      message: entries[0].isDraft ? "Draft marks saved successfully" : "Marks finalized and submitted successfully!",
+      records: savedRecords
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to record examination marks", error: error.message });
+  }
+});
+
+// Toggle Publish results (Principal only)
+app.post("/api/exam-marks/publish-toggle", authenticateToken, authorizeRoles("principal"), (req, res) => {
+  try {
+    const { recordIds, publish } = req.body;
+    if (!recordIds || !Array.isArray(recordIds)) {
+      return res.status(400).json({ message: "Invalid or missing recordIds array" });
+    }
+
+    const marks = CollegeDatabase.getExamMarks();
+    let count = 0;
+
+    const updated = marks.map(m => {
+      if (recordIds.includes(m.id)) {
+        count++;
+        return { ...m, isPublished: !!publish };
+      }
+      return m;
+    });
+
+    CollegeDatabase.saveExamMarks(updated);
+
+    // Audit log
+    const auditLogs = CollegeDatabase.getExamAuditLogs();
+    const auditLogEntry = {
+      id: "aud_" + Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toISOString(),
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: publish ? "Results Published" : "Results Hidden",
+      details: `${publish ? "Published" : "Hidden"} results for ${count} exam mark records.`
+    };
+    auditLogs.push(auditLogEntry);
+    CollegeDatabase.saveExamAuditLogs(auditLogs);
+
+    res.json({ message: `Successfully ${publish ? "published" : "hidden"} results for ${count} records!` });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to publication-toggle exam marks", error: error.message });
+  }
+});
+
+// Unlock finalized exam marks to draft state (Principal only)
+app.post("/api/exam-marks/unlock/:id", authenticateToken, authorizeRoles("principal"), (req, res) => {
+  try {
+    const marks = CollegeDatabase.getExamMarks();
+    const index = marks.findIndex(m => m.id === req.params.id);
+
+    if (index === -1) {
+      return res.status(404).json({ message: "Exam record not found" });
+    }
+
+    marks[index].isDraft = true;
+    CollegeDatabase.saveExamMarks(marks);
+
+    // Audit log
+    const auditLogs = CollegeDatabase.getExamAuditLogs();
+    const auditLogEntry = {
+      id: "aud_" + Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toISOString(),
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: "Marks Unlocked",
+      details: `Unlocked student ${marks[index].studentName}'s marks for editing in course ${marks[index].courseId}.`
+    };
+    auditLogs.push(auditLogEntry);
+    CollegeDatabase.saveExamAuditLogs(auditLogs);
+
+    res.json({ message: `Successfully unlocked ${marks[index].studentName}'s records for editing.`, record: marks[index] });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to unlock record", error: error.message });
+  }
+});
+
+// Retrieve examination audit logs
+app.get("/api/exam-marks/audit-logs", authenticateToken, authorizeRoles("faculty", "principal"), (req, res) => {
+  try {
+    const logs = CollegeDatabase.getExamAuditLogs();
+    if (req.user.role === "principal") {
+      res.json(logs);
+    } else {
+      res.json(logs.filter(l => l.userId === req.user.id));
+    }
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to retrieve audit log", error: error.message });
+  }
+});
+
+// ==========================================
 // LIBRARY PORTAL ENDPOINTS
 // ==========================================
 
@@ -741,6 +1024,338 @@ app.post("/api/library/return/:id", authenticateToken, authorizeRoles("librarian
   }
 
   res.json({ message: "Volume returned cleanly and library records synced" });
+});
+
+// ==========================================
+// STUDENT HUB - PORTAL EXTENSION ENDPOINTS
+// ==========================================
+
+// Change Password
+app.post("/api/profile/change-password", authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Current and new passwords are required." });
+    }
+
+    const users = CollegeDatabase.getUsers();
+    const userIndex = users.findIndex(u => u.id === req.user.id);
+    if (userIndex === -1) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const matched = await bcrypt.compare(currentPassword, users[userIndex].passwordHash);
+    if (!matched) {
+      return res.status(400).json({ message: "Incorrect current password." });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    users[userIndex].passwordHash = await bcrypt.hash(newPassword, salt);
+    CollegeDatabase.saveUsers(users);
+
+    res.json({ message: "Password updated successfully!" });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to change password", error: error.message });
+  }
+});
+
+// Update Profile Picture, Phone, Address (Student/Faculty/All)
+app.put("/api/profile/details", authenticateToken, async (req, res) => {
+  try {
+    const { phone, address, profilePic, fullName } = req.body;
+    const users = CollegeDatabase.getUsers();
+    const idx = users.findIndex(u => u.id === req.user.id);
+    if (idx === -1) {
+      return res.status(404).json({ message: "User profile not found" });
+    }
+
+    if (phone !== undefined) users[idx].phone = phone;
+    if (address !== undefined) users[idx].address = address;
+    if (profilePic !== undefined) users[idx].profilePic = profilePic;
+    if (fullName !== undefined) users[idx].fullName = fullName;
+
+    CollegeDatabase.saveUsers(users);
+    res.json({ message: "Profile details updated successfully", user: users[idx] });
+  } catch (error: any) {
+    res.status(500).json({ message: "Profile update failed", error: error.message });
+  }
+});
+
+// ASSIGNMENTS: Get assignments (student receives only their subjects; faculty receives all; principal receives all)
+app.get("/api/assignments", authenticateToken, (req, res) => {
+  try {
+    let assignments = CollegeDatabase.getAssignments();
+    const submissions = CollegeDatabase.getAssignmentSubmissions();
+    const courses = CollegeDatabase.getCourses();
+
+    // Default system seed if empty
+    if (assignments.length === 0) {
+      const initialAssignments = [
+        {
+          id: "asm_cs101_1",
+          courseId: "crs_cs101",
+          title: "Programming Essentials Lab 1",
+          description: "Complete exercises on TypeScript basic types, functions, and standard array methods. Submit a PDF or ZIP containing code files.",
+          dueDate: new Date(Date.now() + 3600000 * 24 * 5).toISOString(),
+          maxMarks: 100
+        },
+        {
+          id: "asm_cs202_1",
+          courseId: "crs_cs202",
+          title: "Binary Tree Visualizer Implementation",
+          description: "Build a binary search tree data structure, implement depth-first and breadth-first search traversal, and construct performance plots.",
+          dueDate: new Date(Date.now() + 3600000 * 24 * 3).toISOString(),
+          maxMarks: 50
+        },
+        {
+          id: "asm_math101_1",
+          courseId: "crs_math101",
+          title: "Derivatives Practice Set 2",
+          description: "Solve problems 1-15 regarding derivative calculations, product rule, chain rule, and optimization applications.",
+          dueDate: new Date(Date.now() - 3600000 * 24 * 2).toISOString(), // Past deadline
+          maxMarks: 30
+        }
+      ];
+      CollegeDatabase.saveAssignments(initialAssignments);
+      assignments = initialAssignments;
+    }
+
+    if (req.user.role === "student") {
+      // Find what courses student is enrolled in
+      const enrollments = CollegeDatabase.getEnrollments().filter(e => e.studentId === req.user.id && e.status === "active");
+      const courseIds = enrollments.map(e => e.courseId);
+
+      // Filter assignments by student courses
+      const studentAssignments = assignments.filter(a => courseIds.includes(a.courseId));
+      
+      // Map submissions with assignment details
+      const response = studentAssignments.map(asm => {
+        const sub = submissions.find(s => s.assignmentId === asm.id && s.studentId === req.user.id);
+        const course = courses.find(c => c.id === asm.courseId);
+        return {
+          ...asm,
+          courseCode: course?.code || "",
+          courseName: course?.name || "",
+          submission: sub || null
+        };
+      });
+      return res.json(response);
+    }
+
+    // Faculty or Principal receives all with details
+    const response = assignments.map(asm => {
+      const course = courses.find(c => c.id === asm.courseId);
+      const subs = submissions.filter(s => s.assignmentId === asm.id);
+      return {
+        ...asm,
+        courseCode: course?.code || "",
+        courseName: course?.name || "",
+        submissionsCount: subs.length
+      };
+    });
+    res.json(response);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to retrieve assignments", error: error.message });
+  }
+});
+
+// Submit Assignment
+app.post("/api/assignments/submit", authenticateToken, (req, res) => {
+  try {
+    const { assignmentId, fileUrl, fileName } = req.body;
+    if (!assignmentId || !fileUrl || !fileName) {
+      return res.status(400).json({ message: "Missing submission materials." });
+    }
+
+    const assignments = CollegeDatabase.getAssignments();
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) {
+      return res.status(404).json({ message: "Assignment not found" });
+    }
+
+    // Check if deadline has passed
+    const deadline = new Date(assignment.dueDate);
+    const now = new Date();
+    if (now > deadline) {
+      return res.status(400).json({ message: "Assignment submission closed. The deadline has already passed." });
+    }
+
+    const submissions = CollegeDatabase.getAssignmentSubmissions();
+    const existingIndex = submissions.findIndex(s => s.assignmentId === assignmentId && s.studentId === req.user.id);
+
+    const newSub = {
+      id: existingIndex !== -1 ? submissions[existingIndex].id : "sub_" + Math.random().toString(36).substr(2, 9),
+      assignmentId,
+      studentId: req.user.id,
+      submittedAt: new Date().toISOString(),
+      fileUrl,
+      fileName,
+      status: "Submitted" as const,
+    };
+
+    if (existingIndex !== -1) {
+      submissions[existingIndex] = { ...submissions[existingIndex], ...newSub };
+    } else {
+      submissions.push(newSub);
+    }
+
+    CollegeDatabase.saveAssignmentSubmissions(submissions);
+
+    // Create student notification
+    const notifications = CollegeDatabase.getNotifications();
+    notifications.push({
+      id: "not_" + Math.random().toString(36).substr(2, 9),
+      studentId: req.user.id,
+      title: "Assignment Submitted",
+      message: `Your submission for "${assignment.title}" has been filed successfully.`,
+      type: "assignment",
+      timestamp: new Date().toISOString(),
+      isRead: false
+    });
+    CollegeDatabase.saveNotifications(notifications);
+
+    res.status(201).json({ message: "Assignment submitted successfully!", submission: newSub });
+  } catch (error: any) {
+    res.status(500).json({ message: "Submission failed", error: error.message });
+  }
+});
+
+// NOTICES: Get Notices
+app.get("/api/notices", authenticateToken, (req, res) => {
+  try {
+    const notices = CollegeDatabase.getNotices();
+    // Default system seed if empty
+    if (notices.length === 0) {
+      const initialNotices = [
+        {
+          id: "ntc_1",
+          title: "Annual Sports Day Registration",
+          content: "Registrations for the Annual Sports Day 2026 are now open. Interested students can sign up in the physical education building.",
+          date: "2026-07-15",
+          category: "event" as const
+        },
+        {
+          id: "ntc_2",
+          title: "End Semester Exams Schedule Published",
+          content: "The final theory examination schedule for all semesters of Fall 2026 has been published on the exams board and student portals.",
+          date: "2026-07-12",
+          category: "exam" as const
+        },
+        {
+          id: "ntc_3",
+          title: "Computer Science Lab Maintenance",
+          content: "The main server rooms and programming lab 3 will be down for security upgrades on Saturday, July 25th, from 09:00 to 18:00.",
+          date: "2026-07-10",
+          category: "department" as const,
+          department: "Computer Science"
+        }
+      ];
+      CollegeDatabase.saveNotices(initialNotices);
+      return res.json(initialNotices);
+    }
+    res.json(notices);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to retrieve notices", error: error.message });
+  }
+});
+
+// LEAVE REQUESTS: Apply and get status
+app.get("/api/leave-requests", authenticateToken, (req, res) => {
+  try {
+    const requests = CollegeDatabase.getLeaveRequests();
+    if (req.user.role === "student") {
+      return res.json(requests.filter(r => r.studentId === req.user.id));
+    }
+    res.json(requests);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to load leave requests", error: error.message });
+  }
+});
+
+app.post("/api/leave-requests", authenticateToken, (req, res) => {
+  try {
+    const { startDate, endDate, reason, documentUrl, documentName } = req.body;
+    if (!startDate || !endDate || !reason) {
+      return res.status(400).json({ message: "Start date, end date, and leave justification are required." });
+    }
+
+    const requests = CollegeDatabase.getLeaveRequests();
+    const newRequest = {
+      id: "lv_" + Math.random().toString(36).substr(2, 9),
+      studentId: req.user.id,
+      studentName: req.user.fullName,
+      startDate,
+      endDate,
+      reason,
+      status: "Pending" as const,
+      appliedOn: new Date().toISOString().split("T")[0],
+      documentUrl,
+      documentName
+    };
+
+    requests.push(newRequest);
+    CollegeDatabase.saveLeaveRequests(requests);
+    res.status(201).json({ message: "Leave application registered successfully!", request: newRequest });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to file leave", error: error.message });
+  }
+});
+
+// NOTIFICATIONS: Get and Mark read
+app.get("/api/notifications", authenticateToken, (req, res) => {
+  try {
+    const notifications = CollegeDatabase.getNotifications();
+    const userNotifications = notifications.filter(n => n.studentId === req.user.id || n.studentId === "all");
+    
+    // Seed some initial system notifications if empty
+    if (userNotifications.length === 0) {
+      const seedNotifications = [
+        {
+          id: "not_seed_1",
+          studentId: req.user.id,
+          title: "Welcome to Student Hub",
+          message: "Explore your academic portal. Access subject evaluations, exam schedules, and library loans here.",
+          type: "general" as const,
+          timestamp: new Date().toISOString(),
+          isRead: false
+        },
+        {
+          id: "not_seed_2",
+          studentId: req.user.id,
+          title: "Attendance Warning",
+          message: "Keep an eye on your subject-wise attendance logs to prevent falling below the 75% credit threshold.",
+          type: "attendance" as const,
+          timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+          isRead: false
+        }
+      ];
+      const allNotifications = [...notifications, ...seedNotifications];
+      CollegeDatabase.saveNotifications(allNotifications);
+      return res.json(seedNotifications);
+    }
+    res.json(userNotifications);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to load notifications", error: error.message });
+  }
+});
+
+app.post("/api/notifications/mark-read", authenticateToken, (req, res) => {
+  try {
+    const { notificationId } = req.body;
+    const notifications = CollegeDatabase.getNotifications();
+    const updated = notifications.map(n => {
+      if (n.studentId === req.user.id || n.studentId === "all") {
+        if (!notificationId || n.id === notificationId) {
+          return { ...n, isRead: true };
+        }
+      }
+      return n;
+    });
+    CollegeDatabase.saveNotifications(updated);
+    res.json({ message: "Notifications marked as read" });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to update notification state", error: error.message });
+  }
 });
 
 // ==========================================

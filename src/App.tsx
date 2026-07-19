@@ -21,7 +21,12 @@ import {
   KeyRound,
   Sun,
   Moon,
-  ClipboardCheck
+  ClipboardCheck,
+  GraduationCap,
+  User,
+  FileText,
+  Bell,
+  Settings
 } from "lucide-react";
 
 import Header from "./components/Header";
@@ -31,6 +36,22 @@ import CourseCatalog from "./components/CourseCatalog";
 import LibraryManager from "./components/LibraryManager";
 import PrincipalDashboard from "./components/PrincipalDashboard";
 import AttendanceRegister from "./components/AttendanceRegister";
+import ExamMarksEntry from "./components/ExamMarksEntry";
+import {
+  StudentDashboard,
+  StudentProfile,
+  StudentAttendance,
+  StudentTimetable,
+  StudentSubjects,
+  StudentAssignments,
+  StudentExamination,
+  StudentLibrary,
+  StudentNotices,
+  StudentLeave,
+  StudentNotifications,
+  StudentCalendar,
+  StudentSettings
+} from "./components/StudentPortal";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,8 +80,17 @@ function MainPortal() {
     if (user.role === "principal") return "dashboard";
     if (user.role === "librarian") return "library";
     if (user.role === "faculty") return "grades";
-    return "catalog";
+    return "student-dashboard";
   });
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === "principal") setActiveTab("dashboard");
+      else if (user.role === "librarian") setActiveTab("library");
+      else if (user.role === "faculty") setActiveTab("grades");
+      else setActiveTab("student-dashboard");
+    }
+  }, [user]);
 
   // Determine tabs available to this role
   const getTabsForRole = () => {
@@ -69,6 +99,7 @@ function MainPortal() {
       case "principal":
         return [
           { id: "dashboard", label: "Executive Office", icon: LayoutDashboard },
+          { id: "exams", label: "Examination Marks", icon: GraduationCap },
           { id: "attendance", label: "Attendance Register", icon: ClipboardCheck },
           { id: "catalog", label: "Course Catalog", icon: BookOpen },
           { id: "calendar", label: "Institution Calendar", icon: Calendar },
@@ -77,6 +108,7 @@ function MainPortal() {
       case "faculty":
         return [
           { id: "grades", label: "Grade Book Evaluations", icon: Award },
+          { id: "exams", label: "Examination Marks", icon: GraduationCap },
           { id: "attendance", label: "Attendance Register", icon: ClipboardCheck },
           { id: "calendar", label: "Class Timetable", icon: Calendar },
           { id: "catalog", label: "Course Catalog", icon: BookOpen },
@@ -89,11 +121,19 @@ function MainPortal() {
         ];
       default: // student
         return [
-          { id: "catalog", label: "Course Catalog", icon: BookOpen },
-          { id: "grades", label: "Grade Transcript", icon: Award },
-          { id: "attendance", label: "My Attendance", icon: ClipboardCheck },
-          { id: "calendar", label: "My Class Timetable", icon: Calendar },
-          { id: "library", label: "Library Loans", icon: Library },
+          { id: "student-dashboard", label: "Dashboard", icon: LayoutDashboard },
+          { id: "student-profile", label: "My Profile", icon: User },
+          { id: "student-attendance", label: "My Attendance", icon: ClipboardCheck },
+          { id: "student-timetable", label: "My Timetable", icon: Calendar },
+          { id: "student-subjects", label: "Enrolled Subjects", icon: BookOpen },
+          { id: "student-assignments", label: "My Assignments", icon: FileText },
+          { id: "student-exams", label: "Examination Desk", icon: GraduationCap },
+          { id: "student-library", label: "Library Catalog", icon: Library },
+          { id: "student-notices", label: "Notices & Board", icon: Bell },
+          { id: "student-leave", label: "Leave Requests", icon: ClipboardCheck },
+          { id: "student-notifications", label: "My Alerts", icon: Bell },
+          { id: "student-calendar", label: "Academic Calendar", icon: Calendar },
+          { id: "student-settings", label: "Settings", icon: Settings },
         ];
     }
   };
@@ -120,8 +160,37 @@ function MainPortal() {
         return <LibraryManager />;
       case "grades":
         return <GradeBook />;
+      case "exams":
+        return <ExamMarksEntry />;
       case "attendance":
         return <AttendanceRegister />;
+      // Student Portal Modules
+      case "student-dashboard":
+        return <StudentDashboard onTabChange={setActiveTab} />;
+      case "student-profile":
+        return <StudentProfile />;
+      case "student-attendance":
+        return <StudentAttendance />;
+      case "student-timetable":
+        return <StudentTimetable />;
+      case "student-subjects":
+        return <StudentSubjects />;
+      case "student-assignments":
+        return <StudentAssignments />;
+      case "student-exams":
+        return <StudentExamination />;
+      case "student-library":
+        return <StudentLibrary />;
+      case "student-notices":
+        return <StudentNotices />;
+      case "student-leave":
+        return <StudentLeave />;
+      case "student-notifications":
+        return <StudentNotifications />;
+      case "student-calendar":
+        return <StudentCalendar />;
+      case "student-settings":
+        return <StudentSettings />;
       default:
         return (
           <div className="p-8 text-zinc-400 font-mono text-xs">

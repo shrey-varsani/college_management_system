@@ -1059,88 +1059,25 @@ export default function PrincipalDashboard() {
 
             {/* 9. BULLETINS & ANNOUNCEMENTS MODULE */}
             {activeModule === "notices" && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Broadcast notice composer */}
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-sm h-max">
-                  <div>
-                    <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">Publish Official Bulletin</h3>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 font-sans mt-0.5">Broadcast an official notification to the entire student roster.</p>
-                  </div>
-
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      publishNoticeMutation.mutate({
-                        ...newNotice,
-                        date: new Date().toISOString().split("T")[0],
-                      });
-                    }}
-                    className="flex flex-col gap-4"
-                  >
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Title / Headline</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Semester Final term examination guidelines"
-                        value={newNotice.title}
-                        onChange={(e) => setNewNotice({ ...newNotice, title: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Notice Scope Category</label>
-                      <select
-                        value={newNotice.category}
-                        onChange={(e: any) => setNewNotice({ ...newNotice, category: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs focus:outline-none"
-                      >
-                        <option value="college">College Wide</option>
-                        <option value="exam">Examination board</option>
-                        <option value="event">Academic Event</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Notification Body</label>
-                      <textarea
-                        required
-                        rows={4}
-                        placeholder="Please write down instructions or brief details regarding the notification..."
-                        value={newNotice.content}
-                        onChange={(e) => setNewNotice({ ...newNotice, content: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={publishNoticeMutation.isPending}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition"
-                    >
-                      <Bell className="h-4 w-4" /> Broadcast Notice
-                    </button>
-                  </form>
+              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-sm">
+                <div>
+                  <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">Bulletins & Official Broadcasts Log</h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-sans mt-0.5">View and inspect official institutional notices, exam schedules, and academic event calendars published across the campus.</p>
                 </div>
 
-                {/* Notices feed */}
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-sm lg:col-span-2">
-                  <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">Historical Broadcasts Log</h3>
-                  <div className="flex flex-col gap-3.5 max-h-[70vh] overflow-y-auto pr-1">
-                    {notices.map((notice: any) => (
-                      <div key={notice.id} className="p-4 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-100 dark:border-zinc-800/80">
-                        <div className="flex justify-between items-center">
-                          <h5 className="text-xs font-bold text-slate-800 dark:text-zinc-200">{notice.title}</h5>
-                          <span className="text-[9px] font-mono bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full uppercase">
-                            {notice.category}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">{notice.content}</p>
-                        <span className="text-[9px] font-mono text-slate-400 mt-3 block">{notice.date}</span>
+                <div className="flex flex-col gap-3.5 max-h-[70vh] overflow-y-auto pr-1">
+                  {notices.map((notice: any) => (
+                    <div key={notice.id} className="p-4 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-100 dark:border-zinc-800/80">
+                      <div className="flex justify-between items-center">
+                        <h5 className="text-xs font-bold text-slate-800 dark:text-zinc-200">{notice.title}</h5>
+                        <span className="text-[9px] font-mono bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full uppercase">
+                          {notice.category}
+                        </span>
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">{notice.content}</p>
+                      <span className="text-[9px] font-mono text-slate-400 mt-3 block">{notice.date}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

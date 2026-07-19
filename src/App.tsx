@@ -27,7 +27,8 @@ import {
   FileText,
   Bell,
   Settings,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Database
 } from "lucide-react";
 
 import Header from "./components/Header";
@@ -38,6 +39,7 @@ import LibraryManager from "./components/LibraryManager";
 import PrincipalDashboard from "./components/PrincipalDashboard";
 import AttendanceRegister from "./components/AttendanceRegister";
 import ExamMarksEntry from "./components/ExamMarksEntry";
+import FirebaseIntegration from "./components/FirebaseIntegration";
 import {
   StudentDashboard,
   StudentProfile,
@@ -121,6 +123,7 @@ function MainPortal() {
           { id: "catalog", label: "Course Catalog", icon: BookOpen },
           { id: "calendar", label: "Institution Calendar", icon: Calendar },
           { id: "library", label: "Library Catalog", icon: Library },
+          { id: "firebase", label: "Firebase Cloud Sync", icon: Database },
         ];
       case "faculty":
         return [
@@ -187,6 +190,8 @@ function MainPortal() {
         return <ExamMarksEntry />;
       case "attendance":
         return <AttendanceRegister />;
+      case "firebase":
+        return <FirebaseIntegration />;
       // Faculty Portal Modules
       case "faculty-dashboard":
         return <FacultyDashboard onTabChange={setActiveTab} />;

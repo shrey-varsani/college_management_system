@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 
-import { CollegeDatabase, User, Course, Enrollment, Grade, LibraryBook, LibraryBorrow } from "./server/db";
+import { CollegeDatabase, User, Course, Enrollment, Grade, LibraryBook, LibraryBorrow, Attendance } from "./server/db";
 import { runAutomatedScheduler } from "./server/scheduler";
 
 declare global {
@@ -469,6 +469,135 @@ app.delete("/api/grades/:id", authenticateToken, authorizeRoles("faculty"), (req
   const filtered = grades.filter(g => g.id !== req.params.id);
   CollegeDatabase.saveGrades(filtered);
   res.json({ message: "Academic grade ledger entry retracted" });
+});
+
+// ==========================================
+// STUDENT ATTENDANCE PORTAL (Faculty & Student)
+// ==========================================
+
+// Get attendance logs
+app.get("/api/attendance", authenticateToken, (req, res) => {
+  try {
+    const attendance = CollegeDatabase.getAttendance();
+    
+    if (req.user.role === "student") {
+      // Students can only see their own attendance
+      const filtered = attendance.filter(a => 
+        a.studentId === req.user.id || 
+        a.enrollmentNo.toLowerCase() === req.user.id.toLowerCase() ||
+        a.enrollmentNo.toLowerCase() === req.user.fullName.toLowerCase()
+      );
+      return res.json(filtered);
+    } else if (req.user.role === "faculty") {
+      // Faculty see attendance for courses they teach
+      const facultyCourses = CollegeDatabase.getCourses().filter(c => c.facultyId === req.user.id);
+      const fcIds = facultyCourses.map(c => c.id);
+      const filtered = attendance.filter(a => fcIds.includes(a.courseId));
+      return res.json(filtered);
+    } else {
+      // Principal/Librarians can view all attendance
+      return res.json(attendance);
+    }
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to fetch attendance logs", error: error.message });
+  }
+});
+
+// Post student attendance (Faculty only)
+app.post("/api/attendance", authenticateToken, authorizeRoles("faculty", "principal"), (req, res) => {
+  try {
+    const { studentName, enrollmentNo, courseId, date, status, remarks } = req.body;
+    
+    if (!studentName || !enrollmentNo || !courseId || !date || !status) {
+      return res.status(400).json({ message: "Incomplete attendance details provided" });
+    }
+
+    const courses = CollegeDatabase.getCourses();
+    const course = courses.find(c => c.id === courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    // Faculty can only record attendance for their own classes (Principal can do any)
+    if (req.user.role === "faculty" && course.facultyId !== req.user.id) {
+      return res.status(403).json({ message: "Forbidden: You do not teach this class section" });
+    }
+
+    // Try to find matching registered student in DB to populate studentId
+    const users = CollegeDatabase.getUsers();
+    const student = users.find(u => 
+      u.role === "student" && 
+      (u.id.toLowerCase() === enrollmentNo.trim().toLowerCase() || 
+       u.fullName.toLowerCase() === studentName.trim().toLowerCase())
+    );
+
+    const attendance = CollegeDatabase.getAttendance();
+
+    // Check if an attendance record already exists for this student, course and date
+    const existingIndex = attendance.findIndex(a => 
+      a.courseId === courseId && 
+      a.date === date && 
+      a.enrollmentNo.toLowerCase() === enrollmentNo.trim().toLowerCase()
+    );
+
+    if (existingIndex !== -1) {
+      // Update existing record
+      attendance[existingIndex].status = status;
+      attendance[existingIndex].studentName = studentName;
+      attendance[existingIndex].remarks = remarks || "";
+      if (student) {
+        attendance[existingIndex].studentId = student.id;
+      }
+      CollegeDatabase.saveAttendance(attendance);
+      return res.json({ message: "Attendance record updated successfully", record: attendance[existingIndex] });
+    }
+
+    // Create new attendance record
+    const newRecord: Attendance = {
+      id: "att_" + Math.random().toString(36).substr(2, 9),
+      studentId: student ? student.id : undefined,
+      studentName: studentName.trim(),
+      enrollmentNo: enrollmentNo.trim(),
+      courseId,
+      date,
+      status,
+      remarks: remarks || ""
+    };
+
+    attendance.push(newRecord);
+    CollegeDatabase.saveAttendance(attendance);
+
+    res.status(201).json({ message: "Attendance registered successfully", record: newRecord });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to post attendance", error: error.message });
+  }
+});
+
+// Delete attendance record (Faculty and Principal only)
+app.delete("/api/attendance/:id", authenticateToken, authorizeRoles("faculty", "principal"), (req, res) => {
+  try {
+    const attendance = CollegeDatabase.getAttendance();
+    const recordIndex = attendance.findIndex(a => a.id === req.params.id);
+
+    if (recordIndex === -1) {
+      return res.status(404).json({ message: "Attendance record not found" });
+    }
+
+    const record = attendance[recordIndex];
+    const courses = CollegeDatabase.getCourses();
+    const course = courses.find(c => c.id === record.courseId);
+
+    // Faculty can only delete attendance for their own classes
+    if (req.user.role === "faculty" && course && course.facultyId !== req.user.id) {
+      return res.status(403).json({ message: "Forbidden: You do not teach this class section" });
+    }
+
+    const filtered = attendance.filter(a => a.id !== req.params.id);
+    CollegeDatabase.saveAttendance(filtered);
+    res.json({ message: "Attendance record deleted successfully" });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to delete attendance record", error: error.message });
+  }
 });
 
 // ==========================================

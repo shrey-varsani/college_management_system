@@ -20,7 +20,8 @@ import {
   Brain,
   KeyRound,
   Sun,
-  Moon
+  Moon,
+  ClipboardCheck
 } from "lucide-react";
 
 import Header from "./components/Header";
@@ -29,6 +30,7 @@ import GradeBook from "./components/GradeBook";
 import CourseCatalog from "./components/CourseCatalog";
 import LibraryManager from "./components/LibraryManager";
 import PrincipalDashboard from "./components/PrincipalDashboard";
+import AttendanceRegister from "./components/AttendanceRegister";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +69,7 @@ function MainPortal() {
       case "principal":
         return [
           { id: "dashboard", label: "Executive Office", icon: LayoutDashboard },
+          { id: "attendance", label: "Attendance Register", icon: ClipboardCheck },
           { id: "catalog", label: "Course Catalog", icon: BookOpen },
           { id: "calendar", label: "Institution Calendar", icon: Calendar },
           { id: "library", label: "Library Catalog", icon: Library },
@@ -74,6 +77,7 @@ function MainPortal() {
       case "faculty":
         return [
           { id: "grades", label: "Grade Book Evaluations", icon: Award },
+          { id: "attendance", label: "Attendance Register", icon: ClipboardCheck },
           { id: "calendar", label: "Class Timetable", icon: Calendar },
           { id: "catalog", label: "Course Catalog", icon: BookOpen },
           { id: "library", label: "Library Catalog", icon: Library },
@@ -87,6 +91,7 @@ function MainPortal() {
         return [
           { id: "catalog", label: "Course Catalog", icon: BookOpen },
           { id: "grades", label: "Grade Transcript", icon: Award },
+          { id: "attendance", label: "My Attendance", icon: ClipboardCheck },
           { id: "calendar", label: "My Class Timetable", icon: Calendar },
           { id: "library", label: "Library Loans", icon: Library },
         ];
@@ -115,6 +120,8 @@ function MainPortal() {
         return <LibraryManager />;
       case "grades":
         return <GradeBook />;
+      case "attendance":
+        return <AttendanceRegister />;
       default:
         return (
           <div className="p-8 text-zinc-400 font-mono text-xs">

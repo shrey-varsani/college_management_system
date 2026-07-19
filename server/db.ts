@@ -64,6 +64,17 @@ export interface LibraryBorrow {
   status: "borrowed" | "returned" | "overdue";
 }
 
+export interface Attendance {
+  id: string;
+  studentId?: string;
+  studentName: string;
+  enrollmentNo: string;
+  courseId: string;
+  date: string;
+  status: "Present" | "Absent" | "Late";
+  remarks?: string;
+}
+
 interface DatabaseSchema {
   users: User[];
   courses: Course[];
@@ -71,6 +82,7 @@ interface DatabaseSchema {
   grades: Grade[];
   libraryBooks: LibraryBook[];
   libraryBorrows: LibraryBorrow[];
+  attendance: Attendance[];
 }
 
 // Ensure the data directory exists
@@ -321,6 +333,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
     grades,
     libraryBooks,
     libraryBorrows,
+    attendance: [],
   };
 }
 
@@ -333,7 +346,11 @@ export class CollegeDatabase {
       throw new Error("DB file not initialized");
     }
     const raw = fs.readFileSync(DB_FILE, "utf-8");
-    return JSON.parse(raw);
+    const data = JSON.parse(raw);
+    if (!data.attendance) {
+      data.attendance = [];
+    }
+    return data;
   }
 
   private static save(data: DatabaseSchema) {
@@ -409,6 +426,16 @@ export class CollegeDatabase {
   public static saveLibraryBorrows(borrows: LibraryBorrow[]) {
     const data = this.load();
     data.libraryBorrows = borrows;
+    this.save(data);
+  }
+
+  public static getAttendance(): Attendance[] {
+    return this.load().attendance;
+  }
+
+  public static saveAttendance(attendance: Attendance[]) {
+    const data = this.load();
+    data.attendance = attendance;
     this.save(data);
   }
 }

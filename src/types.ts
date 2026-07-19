@@ -36,6 +36,17 @@ export interface Grade {
   weight: number;
 }
 
+export interface Attendance {
+  id: string;
+  studentId?: string;
+  studentName: string;
+  enrollmentNo: string;
+  courseId: string;
+  date: string;
+  status: "Present" | "Absent" | "Late";
+  remarks?: string;
+}
+
 export interface LibraryBook {
   id: string;
   title: string;

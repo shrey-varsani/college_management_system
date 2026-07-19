@@ -43,7 +43,7 @@ export default function Header({ onTabChange, activeTab }: HeaderProps) {
         <div className="flex items-center gap-2">
           <School className="h-6 w-6 text-indigo-500" />
           <span className="font-neon text-lg tracking-wide text-slate-900 dark:text-white">
-            College Management Portal
+            CampusFlow
           </span>
         </div>
       </div>

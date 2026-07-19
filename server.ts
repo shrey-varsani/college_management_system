@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 
@@ -187,18 +188,52 @@ app.put("/api/profile", authenticateToken, async (req, res) => {
   }
 });
 
-// Get user list (Principal/Librarian can view)
-app.get("/api/users", authenticateToken, authorizeRoles("principal", "librarian"), (req, res) => {
-  const users = CollegeDatabase.getUsers().map(u => ({
+// Get user list (Principal/Librarian can view; Faculty can view students in their courses)
+app.get("/api/users", authenticateToken, authorizeRoles("principal", "librarian", "faculty"), (req, res) => {
+  const users = CollegeDatabase.getUsers();
+  
+  if (req.user.role === "faculty") {
+    const courses = CollegeDatabase.getCourses().filter(c => c.facultyId === req.user.id);
+    const courseIds = courses.map(c => c.id);
+    const enrollments = CollegeDatabase.getEnrollments().filter(e => courseIds.includes(e.courseId));
+    const studentIds = enrollments.map(e => e.studentId);
+    
+    const students = users.filter(u => u.role === "student" && studentIds.includes(u.id)).map(u => ({
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      fullName: u.fullName,
+      department: u.department,
+      phone: u.phone,
+      registrationDate: u.registrationDate,
+      rollNumber: u.rollNumber || "R" + Math.floor(100000 + Math.random() * 900000),
+      enrollmentNo: u.enrollmentNo || "EN" + Math.floor(100000 + Math.random() * 900000),
+      branch: u.branch || u.department,
+      semester: u.semester || "5th Semester",
+      section: u.section || "A",
+      address: u.address || "Academic Campus Hostel",
+      profilePic: u.profilePic
+    }));
+    return res.json(students);
+  }
+
+  const result = users.map(u => ({
     id: u.id,
     email: u.email,
     role: u.role,
     fullName: u.fullName,
     department: u.department,
     phone: u.phone,
-    registrationDate: u.registrationDate
+    registrationDate: u.registrationDate,
+    rollNumber: u.rollNumber,
+    enrollmentNo: u.enrollmentNo,
+    branch: u.branch,
+    semester: u.semester,
+    section: u.section,
+    address: u.address,
+    profilePic: u.profilePic
   }));
-  res.json(users);
+  res.json(result);
 });
 
 // Delete user profile (Principal only)
@@ -1263,7 +1298,7 @@ app.get("/api/notices", authenticateToken, (req, res) => {
 app.get("/api/leave-requests", authenticateToken, (req, res) => {
   try {
     const requests = CollegeDatabase.getLeaveRequests();
-    if (req.user.role === "student") {
+    if (req.user.role === "student" || req.user.role === "faculty") {
       return res.json(requests.filter(r => r.studentId === req.user.id));
     }
     res.json(requests);
@@ -1298,6 +1333,43 @@ app.post("/api/leave-requests", authenticateToken, (req, res) => {
     res.status(201).json({ message: "Leave application registered successfully!", request: newRequest });
   } catch (error: any) {
     res.status(500).json({ message: "Failed to file leave", error: error.message });
+  }
+});
+
+// Update leave request status (Principal only)
+app.post("/api/leave-requests/status/:id", authenticateToken, authorizeRoles("principal"), (req, res) => {
+  try {
+    const { status } = req.body;
+    if (status !== "Approved" && status !== "Rejected") {
+      return res.status(400).json({ message: "Status must be Approved or Rejected" });
+    }
+
+    const requests = CollegeDatabase.getLeaveRequests();
+    const index = requests.findIndex(r => r.id === req.params.id);
+
+    if (index === -1) {
+      return res.status(404).json({ message: "Leave request not found" });
+    }
+
+    requests[index].status = status;
+    CollegeDatabase.saveLeaveRequests(requests);
+
+    // Audit Log
+    const auditLogs = CollegeDatabase.getExamAuditLogs();
+    const auditLogEntry = {
+      id: "aud_" + Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toISOString(),
+      userId: req.user.id,
+      userEmail: req.user.email,
+      action: `Leave ${status}`,
+      details: `${status} leave request for student ${requests[index].studentName} (${requests[index].startDate} to ${requests[index].endDate})`
+    };
+    auditLogs.push(auditLogEntry);
+    CollegeDatabase.saveExamAuditLogs(auditLogs);
+
+    res.json({ message: `Successfully updated leave request status to ${status}!`, request: requests[index] });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to update leave request status", error: error.message });
   }
 });
 
@@ -1355,6 +1427,253 @@ app.post("/api/notifications/mark-read", authenticateToken, (req, res) => {
     res.json({ message: "Notifications marked as read" });
   } catch (error: any) {
     res.status(500).json({ message: "Failed to update notification state", error: error.message });
+  }
+});
+
+// ==========================================
+// STUDY MATERIALS FILE LOADER & ENDPOINTS
+// ==========================================
+const MATERIALS_FILE = path.join(process.cwd(), "data", "study_materials.json");
+
+function getStudyMaterials() {
+  try {
+    const dataDir = path.join(process.cwd(), "data");
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    if (!fs.existsSync(MATERIALS_FILE)) {
+      const initial = [
+        {
+          id: "mat_1",
+          courseId: "crs_cs101",
+          title: "Lecture 1: TypeScript Basics & Variables",
+          type: "Notes",
+          fileUrl: "https://www.typescriptlang.org/docs/",
+          fileName: "TS_Basics_Lecture1.pdf",
+          uploadedOn: "2026-07-10"
+        },
+        {
+          id: "mat_2",
+          courseId: "crs_cs202",
+          title: "Binary Tree Traversal Optimization Guide",
+          type: "Resource",
+          fileUrl: "https://visualgo.net/en/bst",
+          fileName: "Tree_Traversal_Visualizer.pdf",
+          uploadedOn: "2026-07-12"
+        }
+      ];
+      fs.writeFileSync(MATERIALS_FILE, JSON.stringify(initial, null, 2), "utf-8");
+      return initial;
+    }
+    return JSON.parse(fs.readFileSync(MATERIALS_FILE, "utf-8"));
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveStudyMaterials(materials: any[]) {
+  try {
+    fs.writeFileSync(MATERIALS_FILE, JSON.stringify(materials, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Failed to save materials:", err);
+  }
+}
+
+app.get("/api/materials", authenticateToken, (req, res) => {
+  try {
+    const materials = getStudyMaterials();
+    const { courseId } = req.query;
+    if (courseId) {
+      return res.json(materials.filter((m: any) => m.courseId === courseId));
+    }
+    res.json(materials);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to load study materials", error: error.message });
+  }
+});
+
+app.post("/api/materials", authenticateToken, authorizeRoles("faculty"), (req, res) => {
+  try {
+    const { courseId, title, type, fileUrl, fileName } = req.body;
+    if (!courseId || !title || !type || !fileUrl || !fileName) {
+      return res.status(400).json({ message: "Missing required materials definitions." });
+    }
+
+    const materials = getStudyMaterials();
+    const newMaterial = {
+      id: "mat_" + Math.random().toString(36).substr(2, 9),
+      courseId,
+      title,
+      type,
+      fileUrl,
+      fileName,
+      uploadedOn: new Date().toISOString().split("T")[0]
+    };
+
+    materials.push(newMaterial);
+    saveStudyMaterials(materials);
+
+    res.status(201).json({ message: "Study material shared successfully!", material: newMaterial });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to upload study material", error: error.message });
+  }
+});
+
+// ==========================================
+// ADDITIONAL FACULTY ASSIGNMENT & NOTICE API
+// ==========================================
+
+// Create Assignment (Faculty)
+app.post("/api/assignments", authenticateToken, authorizeRoles("faculty"), (req, res) => {
+  try {
+    const { courseId, title, description, dueDate, maxMarks, fileUrl } = req.body;
+    if (!courseId || !title || !description || !dueDate || !maxMarks) {
+      return res.status(400).json({ message: "Missing required assignment definitions." });
+    }
+    const assignments = CollegeDatabase.getAssignments();
+    const newAsm = {
+      id: "asm_" + Math.random().toString(36).substr(2, 9),
+      courseId,
+      title,
+      description,
+      dueDate,
+      maxMarks: Number(maxMarks),
+      fileUrl: fileUrl || ""
+    };
+    assignments.push(newAsm);
+    CollegeDatabase.saveAssignments(assignments);
+
+    // Create notifications for all students enrolled in this course
+    const enrollments = CollegeDatabase.getEnrollments().filter(e => e.courseId === courseId);
+    const notifications = CollegeDatabase.getNotifications();
+    enrollments.forEach(e => {
+      notifications.push({
+        id: "not_" + Math.random().toString(36).substr(2, 9),
+        studentId: e.studentId,
+        title: "New Assignment Published",
+        message: `An assignment "${title}" has been published for your course.`,
+        type: "assignment",
+        timestamp: new Date().toISOString(),
+        isRead: false
+      });
+    });
+    CollegeDatabase.saveNotifications(notifications);
+
+    res.status(201).json({ message: "Assignment created successfully!", assignment: newAsm });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to create assignment", error: error.message });
+  }
+});
+
+// View submissions (Faculty/Principal)
+app.get("/api/assignments/submissions", authenticateToken, authorizeRoles("faculty", "principal"), (req, res) => {
+  try {
+    const submissions = CollegeDatabase.getAssignmentSubmissions();
+    const courses = CollegeDatabase.getCourses();
+    const users = CollegeDatabase.getUsers();
+    const assignments = CollegeDatabase.getAssignments();
+
+    let facultyCourseIds: string[] = [];
+    if (req.user.role === "faculty") {
+      facultyCourseIds = courses.filter(c => c.facultyId === req.user.id).map(c => c.id);
+    } else {
+      facultyCourseIds = courses.map(c => c.id);
+    }
+
+    const filteredAssignments = assignments.filter(a => facultyCourseIds.includes(a.courseId));
+    const asmIds = filteredAssignments.map(a => a.id);
+
+    const filteredSubmissions = submissions.filter(s => asmIds.includes(s.assignmentId));
+
+    const response = filteredSubmissions.map(sub => {
+      const student = users.find(u => u.id === sub.studentId);
+      const asm = assignments.find(a => a.id === sub.assignmentId);
+      const course = asm ? courses.find(c => c.id === asm.courseId) : null;
+
+      return {
+        ...sub,
+        studentName: student ? student.fullName : "Unknown Student",
+        assignmentTitle: asm ? asm.title : "Unknown Assignment",
+        courseCode: course ? course.code : "",
+        courseName: course ? course.name : "",
+        maxMarks: asm ? asm.maxMarks : 100
+      };
+    });
+
+    res.json(response);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to load submissions", error: error.message });
+  }
+});
+
+// Grade Submissions (Faculty)
+app.post("/api/assignments/grade", authenticateToken, authorizeRoles("faculty"), (req, res) => {
+  try {
+    const { submissionId, score, feedback } = req.body;
+    if (!submissionId || score === undefined) {
+      return res.status(400).json({ message: "Submission ID and score are required." });
+    }
+
+    const submissions = CollegeDatabase.getAssignmentSubmissions();
+    const subIdx = submissions.findIndex(s => s.id === submissionId);
+    if (subIdx === -1) {
+      return res.status(404).json({ message: "Submission not found." });
+    }
+
+    submissions[subIdx].score = Number(score);
+    submissions[subIdx].feedback = feedback || "";
+    submissions[subIdx].status = "Graded";
+
+    CollegeDatabase.saveAssignmentSubmissions(submissions);
+
+    // Notify the student
+    const notifications = CollegeDatabase.getNotifications();
+    const assignments = CollegeDatabase.getAssignments();
+    const asm = assignments.find(a => a.id === submissions[subIdx].assignmentId);
+    
+    notifications.push({
+      id: "not_" + Math.random().toString(36).substr(2, 9),
+      studentId: submissions[subIdx].studentId,
+      title: "Assignment Graded",
+      message: `Your submission for "${asm ? asm.title : 'Assignment'}" has been graded. Score: ${score}%`,
+      type: "assignment",
+      timestamp: new Date().toISOString(),
+      isRead: false
+    });
+    CollegeDatabase.saveNotifications(notifications);
+
+    res.json({ message: "Submission graded successfully!", submission: submissions[subIdx] });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to grade submission", error: error.message });
+  }
+});
+
+// Publish Notice (Faculty/Principal)
+app.post("/api/notices", authenticateToken, authorizeRoles("faculty", "principal"), (req, res) => {
+  try {
+    const { title, content, category, department, branch, semester } = req.body;
+    if (!title || !content || !category) {
+      return res.status(400).json({ message: "Incomplete notice parameters." });
+    }
+
+    const notices = CollegeDatabase.getNotices();
+    const newNotice = {
+      id: "ntc_" + Math.random().toString(36).substr(2, 9),
+      title,
+      content,
+      date: new Date().toISOString().split("T")[0],
+      category: category as any,
+      department: department || "",
+      branch: branch || "",
+      semester: semester || ""
+    };
+
+    notices.unshift(newNotice);
+    CollegeDatabase.saveNotices(notices);
+
+    res.status(201).json(newNotice);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to publish notice", error: error.message });
   }
 });
 

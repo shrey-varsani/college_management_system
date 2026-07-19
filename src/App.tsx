@@ -26,7 +26,8 @@ import {
   User,
   FileText,
   Bell,
-  Settings
+  Settings,
+  FileSpreadsheet
 } from "lucide-react";
 
 import Header from "./components/Header";
@@ -52,6 +53,22 @@ import {
   StudentCalendar,
   StudentSettings
 } from "./components/StudentPortal";
+
+import {
+  FacultyDashboard,
+  FacultyProfile,
+  FacultyTimetable,
+  FacultyAttendance,
+  FacultyStudents,
+  FacultyAssignments,
+  FacultyExams,
+  FacultySubjects,
+  FacultyNotices,
+  FacultyLeave,
+  FacultyNotifications,
+  FacultyReports,
+  FacultySettings
+} from "./components/FacultyPortal";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,7 +96,7 @@ function MainPortal() {
     if (!user) return "login";
     if (user.role === "principal") return "dashboard";
     if (user.role === "librarian") return "library";
-    if (user.role === "faculty") return "grades";
+    if (user.role === "faculty") return "faculty-dashboard";
     return "student-dashboard";
   });
 
@@ -87,7 +104,7 @@ function MainPortal() {
     if (user) {
       if (user.role === "principal") setActiveTab("dashboard");
       else if (user.role === "librarian") setActiveTab("library");
-      else if (user.role === "faculty") setActiveTab("grades");
+      else if (user.role === "faculty") setActiveTab("faculty-dashboard");
       else setActiveTab("student-dashboard");
     }
   }, [user]);
@@ -107,12 +124,19 @@ function MainPortal() {
         ];
       case "faculty":
         return [
-          { id: "grades", label: "Grade Book Evaluations", icon: Award },
-          { id: "exams", label: "Examination Marks", icon: GraduationCap },
-          { id: "attendance", label: "Attendance Register", icon: ClipboardCheck },
-          { id: "calendar", label: "Class Timetable", icon: Calendar },
-          { id: "catalog", label: "Course Catalog", icon: BookOpen },
-          { id: "library", label: "Library Catalog", icon: Library },
+          { id: "faculty-dashboard", label: "Dashboard", icon: LayoutDashboard },
+          { id: "faculty-profile", label: "My Profile", icon: User },
+          { id: "faculty-timetable", label: "My Timetable", icon: Calendar },
+          { id: "faculty-attendance", label: "Attendance Control", icon: ClipboardCheck },
+          { id: "faculty-students", label: "Student Roster", icon: GraduationCap },
+          { id: "faculty-assignments", label: "Assignments & Grading", icon: FileText },
+          { id: "faculty-exams", label: "Examination Desk", icon: Award },
+          { id: "faculty-subjects", label: "Subject Materials", icon: BookOpen },
+          { id: "faculty-notices", label: "Notices & Bulletins", icon: Bell },
+          { id: "faculty-leave", label: "Leave Requests", icon: ClipboardCheck },
+          { id: "faculty-notifications", label: "My Alerts", icon: Bell },
+          { id: "faculty-reports", label: "Performance Reports", icon: FileSpreadsheet },
+          { id: "faculty-settings", label: "Settings", icon: Settings },
         ];
       case "librarian":
         return [
@@ -164,6 +188,33 @@ function MainPortal() {
         return <ExamMarksEntry />;
       case "attendance":
         return <AttendanceRegister />;
+      // Faculty Portal Modules
+      case "faculty-dashboard":
+        return <FacultyDashboard onTabChange={setActiveTab} />;
+      case "faculty-profile":
+        return <FacultyProfile />;
+      case "faculty-timetable":
+        return <FacultyTimetable />;
+      case "faculty-attendance":
+        return <FacultyAttendance />;
+      case "faculty-students":
+        return <FacultyStudents />;
+      case "faculty-assignments":
+        return <FacultyAssignments />;
+      case "faculty-exams":
+        return <FacultyExams />;
+      case "faculty-subjects":
+        return <FacultySubjects />;
+      case "faculty-notices":
+        return <FacultyNotices />;
+      case "faculty-leave":
+        return <FacultyLeave />;
+      case "faculty-notifications":
+        return <FacultyNotifications />;
+      case "faculty-reports":
+        return <FacultyReports />;
+      case "faculty-settings":
+        return <FacultySettings />;
       // Student Portal Modules
       case "student-dashboard":
         return <StudentDashboard onTabChange={setActiveTab} />;

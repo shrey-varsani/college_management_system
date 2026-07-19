@@ -70,6 +70,23 @@ export default function PrincipalDashboard() {
   const [newNotice, setNewNotice] = useState({ title: "", content: "", category: "college" as const });
   const [selectedReport, setSelectedReport] = useState("student-performance");
   const [gradeCourseId, setGradeCourseId] = useState("All");
+  const [remarksMap, setRemarksMap] = useState<Record<string, string>>({});
+
+  const { data: notifications = [], refetch: refetchNotifications } = useQuery<any[]>({
+    queryKey: ["notifications"],
+    queryFn: async () => (await api.get("/notifications")).data
+  });
+
+  const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
+
+  const markReadMutation = useMutation({
+    mutationFn: async (id?: string) => await api.post("/notifications/mark-read", { notificationId: id }),
+    onSuccess: () => {
+      refetchNotifications();
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast.success("Notifications marked read successfully!");
+    }
+  });
 
   // Settings State
   const [settingsPhone, setSettingsPhone] = useState(currentUser?.phone || "");
@@ -121,13 +138,14 @@ export default function PrincipalDashboard() {
 
   // Mutations
   const updateLeaveStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: "Approved" | "Rejected" }) => {
-      return await api.post(`/leave-requests/status/${id}`, { status });
+    mutationFn: async ({ id, status, remarks }: { id: string; status: "Approved" | "Rejected"; remarks?: string }) => {
+      return await api.post(`/leave-requests/status/${id}`, { status, remarks });
     },
-    onSuccess: (res: any) => {
+    onSuccess: (res: any, variables) => {
       queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
       queryClient.invalidateQueries({ queryKey: ["exam-audit-logs"] });
-      toast.success(res.data.message || `Leave request ${status === "Approved" ? "approved" : "rejected"} successfully!`);
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast.success(res.data.message || `Leave request ${variables.status === "Approved" ? "approved" : "rejected"} successfully!`);
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to update leave request status");
@@ -208,7 +226,7 @@ export default function PrincipalDashboard() {
   const faculty = users.filter((u) => u.role === "faculty");
   const departments = [...new Set(users.map((u) => u.department).filter(Boolean))];
 
-  const pendingLeaves = leaveRequests.filter((r) => r.status === "Pending");
+  const pendingLeaves = leaveRequests.filter((r) => r.status === "Pending Principal Approval");
   const activeExamsCount = examMarks.length;
   const publishedExamsCount = examMarks.filter((e) => e.isPublished).length;
 
@@ -274,7 +292,8 @@ export default function PrincipalDashboard() {
     { id: "exams", label: "Examination Board", icon: Award },
     { id: "timetable", label: "Unified Timetable", icon: Calendar },
     { id: "leave", label: `Leave Approvals (${pendingLeaves.length})`, icon: FileText, badge: pendingLeaves.length > 0 },
-    { id: "notices", label: "Bulletins & Broadcasts", icon: Bell },
+    { id: "notices", label: "Bulletins & Broadcasts", icon: ShieldAlert },
+    { id: "alerts", label: "My Alerts", icon: Bell, badge: unreadNotificationsCount > 0 },
     { id: "reports", label: "ERP Reports Desk", icon: FileSpreadsheet },
     { id: "audit", label: "System Audit Logs", icon: Clock },
     { id: "settings", label: "Security & Preferences", icon: Settings },
@@ -323,7 +342,7 @@ export default function PrincipalDashboard() {
                 </span>
                 {item.badge && (
                   <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold ${active ? "bg-white text-indigo-600" : "bg-red-500 text-white"}`}>
-                    {pendingLeaves.length}
+                    {item.id === "leave" ? pendingLeaves.length : unreadNotificationsCount}
                   </span>
                 )}
               </button>
@@ -349,13 +368,28 @@ export default function PrincipalDashboard() {
                 {/* Welcome Card */}
                 <div className="relative rounded-2xl bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-950 p-6 text-white shadow-xl overflow-hidden border border-slate-900">
                   <div className="absolute right-0 bottom-0 top-0 opacity-10 w-96 bg-[radial-gradient(circle_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-500 to-transparent pointer-events-none" />
-                  <span className="text-[10px] font-mono font-bold tracking-widest text-indigo-300 uppercase">
-                    Institutional Management suite
-                  </span>
-                  <h1 className="text-2xl font-grotesk font-semibold tracking-tight mt-1 text-slate-100">
-                    Welcome back, Principal Charles Xavier
-                  </h1>
-                  <p className="text-xs text-slate-300 max-w-xl mt-1 leading-relaxed">
+                  <div className="flex justify-between items-start gap-4">
+                    <div>
+                      <span className="text-[10px] font-mono font-bold tracking-widest text-indigo-300 uppercase">
+                        Institutional Management suite
+                      </span>
+                      <h1 className="text-2xl font-grotesk font-semibold tracking-tight mt-1 text-slate-100">
+                        Welcome back, Principal Charles Xavier
+                      </h1>
+                    </div>
+                    <button 
+                      onClick={() => setActiveModule("alerts")}
+                      className="relative p-2 bg-white/10 hover:bg-white/20 transition rounded-xl border border-white/10 text-white flex items-center justify-center cursor-pointer"
+                    >
+                      <Bell className="h-5 w-5" />
+                      {unreadNotificationsCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 h-4.5 w-4.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center font-mono animate-pulse">
+                          {unreadNotificationsCount}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-300 max-w-xl mt-2 leading-relaxed">
                     Access high-level administrative insights, review real-time student performance index, authorize leave approvals, and inspect the institution audit trails.
                   </p>
                 </div>
@@ -982,39 +1016,63 @@ export default function PrincipalDashboard() {
                 {/* Pending Actions Feed */}
                 <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5 shadow-sm flex flex-col gap-4">
                   <span className="font-semibold text-xs text-slate-500 dark:text-zinc-500 uppercase tracking-wider block">Awaiting Action</span>
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-4">
                     {pendingLeaves.length === 0 ? (
                       <div className="text-center py-12 text-slate-400 text-xs">No pending leave applications. All caught up!</div>
                     ) : (
                       pendingLeaves.map((req: any) => (
-                        <div key={req.id} className="p-4 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-100 dark:border-zinc-800/60 flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:border-slate-300 dark:hover:border-zinc-700 transition">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h5 className="text-xs font-bold text-slate-800 dark:text-zinc-200">{req.studentName}</h5>
-                              <span className="text-[9px] uppercase tracking-wide bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold px-2 py-0.5 rounded-full">
-                                Scholar
-                              </span>
+                        <div key={req.id} className="p-4 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-100 dark:border-zinc-800/60 flex flex-col gap-4 hover:border-slate-300 dark:hover:border-zinc-700 transition">
+                          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h5 className="text-xs font-bold text-slate-800 dark:text-zinc-200">{req.studentName}</h5>
+                                <span className="text-[9px] uppercase tracking-wide bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold px-2 py-0.5 rounded-full font-mono">
+                                  {req.enrollmentNo || "2024CS082"} • {req.branch || "Computer Science"} • {req.semester || "Semester V"}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-1 font-mono">
+                                Requested Duration: {req.startDate} to {req.endDate}
+                              </p>
+                              <p className="text-xs text-slate-600 dark:text-zinc-300 mt-1.5 italic">
+                                "{req.reason}"
+                              </p>
+                              {req.documentUrl && (
+                                <p className="text-[10px] text-slate-400 mt-1.5">
+                                  Attachment: <a href={req.documentUrl} target="_blank" rel="noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">{req.documentName || "supporting_document.pdf"}</a>
+                                </p>
+                              )}
+                              {req.facultyName && (
+                                <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-2 font-sans bg-indigo-500/5 dark:bg-indigo-950/20 p-2 rounded border border-indigo-150 dark:border-indigo-900/30">
+                                  Forwarded with approval by Faculty Coordinator: <span className="font-semibold">{req.facultyName}</span> (Remarks: "{req.facultyRemarks || "Approved"}")
+                                </p>
+                              )}
                             </div>
-                            <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-1 font-mono">
-                              Requested Duration: {req.startDate} to {req.endDate}
-                            </p>
-                            <p className="text-xs text-slate-600 dark:text-zinc-300 mt-1.5 italic">
-                              "{req.reason}"
-                            </p>
                           </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => updateLeaveStatusMutation.mutate({ id: req.id, status: "Approved" })}
-                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1 shadow transition"
-                            >
-                              <CheckCircle2 className="h-4 w-4" /> Approve
-                            </button>
-                            <button
-                              onClick={() => updateLeaveStatusMutation.mutate({ id: req.id, status: "Rejected" })}
-                              className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1 shadow transition"
-                            >
-                              <XCircle className="h-4 w-4" /> Reject
-                            </button>
+
+                          <div className="pt-3 border-t border-slate-200/50 dark:border-zinc-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex-1 max-w-md">
+                              <input
+                                type="text"
+                                placeholder="Executive office remarks..."
+                                value={remarksMap[req.id] || ""}
+                                onChange={(e) => setRemarksMap({ ...remarksMap, [req.id]: e.target.value })}
+                                className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 px-3 py-1.5 text-xs rounded-lg outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => updateLeaveStatusMutation.mutate({ id: req.id, status: "Approved", remarks: remarksMap[req.id] || "" })}
+                                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1 shadow transition cursor-pointer"
+                              >
+                                <CheckCircle2 className="h-4 w-4" /> Approve
+                              </button>
+                              <button
+                                onClick={() => updateLeaveStatusMutation.mutate({ id: req.id, status: "Rejected", remarks: remarksMap[req.id] || "" })}
+                                className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1 shadow transition cursor-pointer"
+                              >
+                                <XCircle className="h-4 w-4" /> Reject
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))
@@ -1031,19 +1089,36 @@ export default function PrincipalDashboard() {
                         <tr className="bg-slate-50 dark:bg-zinc-900 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                           <th className="p-3">Scholar Student</th>
                           <th className="p-3">Leave Timeline</th>
-                          <th className="p-3">Justification</th>
+                          <th className="p-3">Justification & Multi-Stage Comments</th>
                           <th className="p-3">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-zinc-900">
-                        {leaveRequests.filter(r => r.status !== "Pending").map((req: any) => (
+                        {leaveRequests.filter((r: any) => r.status !== "Pending Faculty Approval" && r.status !== "Pending Principal Approval").map((req: any) => (
                           <tr key={req.id}>
-                            <td className="p-3 font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</td>
-                            <td className="p-3 font-mono text-[10px] text-slate-500">{req.startDate} to {req.endDate}</td>
-                            <td className="p-3 text-slate-500 truncate max-w-xs">{req.reason}</td>
                             <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded-full font-mono font-bold text-[9px] uppercase ${
-                                req.status === "Approved" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950" : "bg-red-50 text-red-600 dark:bg-red-950"
+                              <div className="font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</div>
+                              <div className="text-[9px] font-mono text-slate-400 mt-0.5">{req.enrollmentNo || "2024CS082"}</div>
+                            </td>
+                            <td className="p-3 font-mono text-[10px] text-slate-500">{req.startDate} to {req.endDate}</td>
+                            <td className="p-3 text-slate-500 max-w-md">
+                              <div className="italic">"{req.reason}"</div>
+                              {req.facultyRemarks && (
+                                <div className="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 font-sans">
+                                  Faculty Remarks: "{req.facultyRemarks}" (by {req.facultyName || "Faculty Coordinator"})
+                                </div>
+                              )}
+                              {req.principalRemarks && (
+                                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-sans">
+                                  Executive Remarks: "{req.principalRemarks}"
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2.5 py-0.5 rounded-full font-mono font-bold text-[9px] uppercase ${
+                                req.status === "Approved" 
+                                  ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400" 
+                                  : "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400"
                               }`}>
                                 {req.status}
                               </span>
@@ -1059,25 +1134,88 @@ export default function PrincipalDashboard() {
 
             {/* 9. BULLETINS & ANNOUNCEMENTS MODULE */}
             {activeModule === "notices" && (
-              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-sm">
-                <div>
-                  <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">Bulletins & Official Broadcasts Log</h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-sans mt-0.5">View and inspect official institutional notices, exam schedules, and academic event calendars published across the campus.</p>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Broadcast notice composer */}
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-sm h-max">
+                  <div>
+                    <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">Publish Official Bulletin</h3>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 font-sans mt-0.5">Broadcast an official notification to the entire student roster.</p>
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      publishNoticeMutation.mutate({
+                        ...newNotice,
+                        date: new Date().toISOString().split("T")[0],
+                      });
+                    }}
+                    className="flex flex-col gap-4"
+                  >
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Title / Headline</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Semester Final term examination guidelines"
+                        value={newNotice.title}
+                        onChange={(e) => setNewNotice({ ...newNotice, title: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Notice Scope Category</label>
+                      <select
+                        value={newNotice.category}
+                        onChange={(e: any) => setNewNotice({ ...newNotice, category: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs focus:outline-none"
+                      >
+                        <option value="college">College Wide</option>
+                        <option value="exam">Examination board</option>
+                        <option value="event">Academic Event</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">Notification Body</label>
+                      <textarea
+                        required
+                        rows={4}
+                        placeholder="Please write down instructions or brief details regarding the notification..."
+                        value={newNotice.content}
+                        onChange={(e) => setNewNotice({ ...newNotice, content: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={publishNoticeMutation.isPending}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition"
+                    >
+                      <Bell className="h-4 w-4" /> Broadcast Notice
+                    </button>
+                  </form>
                 </div>
 
-                <div className="flex flex-col gap-3.5 max-h-[70vh] overflow-y-auto pr-1">
-                  {notices.map((notice: any) => (
-                    <div key={notice.id} className="p-4 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-100 dark:border-zinc-800/80">
-                      <div className="flex justify-between items-center">
-                        <h5 className="text-xs font-bold text-slate-800 dark:text-zinc-200">{notice.title}</h5>
-                        <span className="text-[9px] font-mono bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full uppercase">
-                          {notice.category}
-                        </span>
+                {/* Notices feed */}
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-sm lg:col-span-2">
+                  <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">Historical Broadcasts Log</h3>
+                  <div className="flex flex-col gap-3.5 max-h-[70vh] overflow-y-auto pr-1">
+                    {notices.map((notice: any) => (
+                      <div key={notice.id} className="p-4 bg-slate-50 dark:bg-zinc-900 rounded-xl border border-slate-100 dark:border-zinc-800/80">
+                        <div className="flex justify-between items-center">
+                          <h5 className="text-xs font-bold text-slate-800 dark:text-zinc-200">{notice.title}</h5>
+                          <span className="text-[9px] font-mono bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full uppercase">
+                            {notice.category}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">{notice.content}</p>
+                        <span className="text-[9px] font-mono text-slate-400 mt-3 block">{notice.date}</span>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">{notice.content}</p>
-                      <span className="text-[9px] font-mono text-slate-400 mt-3 block">{notice.date}</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1409,6 +1547,52 @@ export default function PrincipalDashboard() {
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* 12. ALERTS MODULE */}
+            {activeModule === "alerts" && (
+              <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 shadow-sm">
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-zinc-900 mb-4">
+                  <div>
+                    <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">Professional Alerts Desk</h3>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400">Track real-time student leave forwarding, system synch alerts, and administrative tasks.</p>
+                  </div>
+                  <button 
+                    onClick={() => markReadMutation.mutate(undefined)}
+                    className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    Mark All Read
+                  </button>
+                </div>
+
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic text-center py-12">No alerts logged currently.</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {notifications.map((not: any, idx: number) => (
+                      <div key={idx} className={`p-4 border rounded-lg flex justify-between items-center gap-4 transition ${not.isRead ? "border-slate-100 dark:border-zinc-900 bg-slate-50/20 dark:bg-zinc-950/20 opacity-70" : "border-indigo-100 dark:border-indigo-950/60 bg-indigo-500/5"}`}>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">{not.type}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">{not.timestamp?.split("T")[0]}</span>
+                          </div>
+                          <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-200 mt-1.5 leading-tight">{not.title}</h4>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">{not.message}</p>
+                        </div>
+                        {!not.isRead && (
+                          <button 
+                            onClick={() => markReadMutation.mutate(not.id)}
+                            className="p-1.5 hover:bg-slate-100 dark:hover:bg-zinc-900 rounded transition cursor-pointer"
+                            title="Mark alert read"
+                          >
+                            <CheckCircle2 className="h-4 w-4 text-indigo-500" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

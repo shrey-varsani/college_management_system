@@ -2322,7 +2322,23 @@ export function StudentLeave() {
                     <td className="py-3.5 font-mono font-medium">
                       {l.startDate} to {l.endDate}
                     </td>
-                    <td className="py-3.5 max-w-xs">{l.reason}</td>
+                    <td className="py-3.5 max-w-xs">
+                      <div className="font-medium text-slate-900 dark:text-zinc-100">{l.reason}</div>
+                      {(l.facultyRemarks || l.principalRemarks) && (
+                        <div className="mt-1.5 space-y-1 bg-slate-50 dark:bg-zinc-950 p-2 rounded border border-slate-100 dark:border-zinc-850 text-[10px]">
+                          {l.facultyRemarks && (
+                            <div className="text-slate-500 dark:text-zinc-400">
+                              <span className="font-semibold text-indigo-600 dark:text-indigo-400">Faculty Coordinator:</span> {l.facultyRemarks}
+                            </div>
+                          )}
+                          {l.principalRemarks && (
+                            <div className="text-slate-500 dark:text-zinc-400">
+                              <span className="font-semibold text-rose-600 dark:text-rose-400">Executive Office:</span> {l.principalRemarks}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
                     <td className="py-3.5 font-mono text-indigo-600 dark:text-indigo-400">
                       {l.documentName ? (
                         <span className="flex items-center gap-1">
@@ -2338,7 +2354,13 @@ export function StudentLeave() {
                           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                           : l.status === "Rejected"
                           ? "bg-rose-500/10 text-rose-500"
-                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          : l.status === "Pending Faculty Approval"
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          : l.status === "Pending Principal Approval"
+                          ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                          : l.status === "Rejected by Faculty"
+                          ? "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                          : "bg-slate-500/10 text-slate-600 dark:text-slate-400"
                       }`}>
                         {l.status}
                       </span>

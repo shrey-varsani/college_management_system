@@ -1486,8 +1486,7 @@ export function FacultyNotices() {
   );
 }
 
-// ==========================================
-// 10. LEAVE REQUESTS
+// =================================// 10. LEAVE REQUESTS
 // ==========================================
 export function FacultyLeave() {
   const { user } = useSelector((state: RootState) => state.app);
@@ -1495,6 +1494,8 @@ export function FacultyLeave() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
+  const [activeSubTab, setActiveSubTab] = useState<"student-approvals" | "my-petitions">("student-approvals");
+  const [remarksMap, setRemarksMap] = useState<Record<string, string>>({});
 
   const { data: leaves = [], refetch } = useQuery<any[]>({
     queryKey: ["leave-requests"],
@@ -1517,65 +1518,248 @@ export function FacultyLeave() {
     leaveMutation.mutate({ startDate, endDate, reason });
   };
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status, remarks }: { id: string; status: "Approved" | "Rejected"; remarks: string }) => {
+      return (await api.post(`/leave-requests/status/${id}`, { status, remarks })).data;
+    },
+    onSuccess: (data) => {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast.success(data.message || "Updated leave status successfully!");
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to update leave request status");
+    }
+  });
+
+  const myLeaves = leaves.filter(l => l.studentId === user?.id);
+  const studentPendingLeaves = leaves.filter(l => l.studentId !== user?.id && l.status === "Pending Faculty Approval");
+  const studentHistoryLeaves = leaves.filter(l => l.studentId !== user?.id && l.status !== "Pending Faculty Approval");
+
   return (
     <div className="p-6">
-      <ModuleHeader title="Assigned Leave Requests Desk" subtitle="Apply for official leaves, track approval status, and view historical leave records." icon={ClipboardCheck} />
+      <ModuleHeader title="Assigned Leave Requests Desk" subtitle="Review student absence letters or apply for official leaves of absence." icon={ClipboardCheck} />
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form apply left */}
-        <div className="lg:col-span-1 rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-5 shadow-sm">
-          <h3 className="text-xs font-sans font-bold uppercase tracking-wider text-slate-800 dark:text-white mb-4">Apply for Leave</h3>
-          <form onSubmit={handleApplyLeave} className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-semibold tracking-wider text-slate-400 block mb-1">Start Date</label>
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none" required />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold tracking-wider text-slate-400 block mb-1">End Date</label>
-                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none" required />
-              </div>
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold tracking-wider text-slate-400 block mb-1">Reason Justification</label>
-              <textarea rows={4} value={reason} onChange={e => setReason(e.target.value)} placeholder="State the reason for leave requests..." className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none" required />
-            </div>
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-semibold py-2 rounded transition shadow-md">
-              Submit Leave Application
-            </button>
-          </form>
-        </div>
-
-        {/* Leave list right */}
-        <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-6 shadow-sm">
-          <h3 className="text-xs font-sans font-bold uppercase tracking-wider text-slate-800 dark:text-white mb-4">Historical requests status</h3>
-          {leaves.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">No leave requests submitted yet.</p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {leaves.map((lv, idx) => {
-                const statusColors = {
-                  Pending: "text-amber-500 bg-amber-500/10 border-amber-500/20",
-                  Approved: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
-                  Rejected: "text-rose-500 bg-rose-500/10 border-rose-500/20"
-                };
-                return (
-                  <div key={idx} className="p-4 border border-slate-100 dark:border-zinc-900 bg-slate-50/50 dark:bg-zinc-900/30 rounded-lg flex justify-between items-start">
-                    <div>
-                      <span className="text-[9px] text-slate-400 block font-mono">APPLIED ON {lv.appliedOn}</span>
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-200 mt-1">{lv.startDate} &rarr; {lv.endDate}</h4>
-                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">{lv.reason}</p>
-                    </div>
-                    <span className={`text-[9px] font-mono font-bold uppercase px-2.5 py-1 rounded border ${statusColors[lv.status as "Pending" | "Approved" | "Rejected"] || "text-slate-500 bg-slate-50"}`}>
-                      {lv.status}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+      {/* Sub tabs switcher */}
+      <div className="flex border-b border-slate-200 dark:border-zinc-800 mb-6 gap-6 text-xs font-sans">
+        <button
+          onClick={() => setActiveSubTab("student-approvals")}
+          className={`pb-3 font-semibold transition relative ${
+            activeSubTab === "student-approvals"
+              ? "text-indigo-600 border-b-2 border-b-indigo-600"
+              : "text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          }`}
+        >
+          Student Leave Approvals
+          {studentPendingLeaves.length > 0 && (
+            <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-mono font-bold animate-pulse">
+              {studentPendingLeaves.length}
+            </span>
           )}
-        </div>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("my-petitions")}
+          className={`pb-3 font-semibold transition relative ${
+            activeSubTab === "my-petitions"
+              ? "text-indigo-600 border-b-2 border-b-indigo-600"
+              : "text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          }`}
+        >
+          My Leave Petitions
+        </button>
       </div>
+
+      {activeSubTab === "student-approvals" ? (
+        <div className="space-y-6">
+          {/* Pending approvals section */}
+          <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-6 shadow-sm">
+            <h3 className="text-xs font-sans font-bold uppercase tracking-wider text-slate-800 dark:text-white mb-4">
+              Pending student requests ({studentPendingLeaves.length})
+            </h3>
+
+            {studentPendingLeaves.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-4">No student leave requests pending your review.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {studentPendingLeaves.map((lv) => (
+                  <div key={lv.id} className="p-4 border border-slate-100 dark:border-zinc-900 bg-slate-50/50 dark:bg-zinc-900/30 rounded-xl flex flex-col justify-between hover:border-slate-300 dark:hover:border-zinc-700 transition">
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">{lv.studentName}</h4>
+                          <p className="text-[10px] font-mono text-slate-500 dark:text-zinc-400 mt-0.5">
+                            Roll No: {lv.enrollmentNo || "2024CS082"} • {lv.branch || "Computer Science"} • {lv.semester || "Semester V"}
+                          </p>
+                        </div>
+                        <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded">
+                          Pending Faculty
+                        </span>
+                      </div>
+
+                      <div className="mt-3 space-y-1.5 text-xs">
+                        <p className="font-semibold text-slate-700 dark:text-zinc-300">
+                          Absence Period: <span className="font-mono text-indigo-600 dark:text-indigo-400">{lv.startDate} to {lv.endDate}</span>
+                        </p>
+                        <p className="text-slate-600 dark:text-zinc-400 italic">
+                          "{lv.reason}"
+                        </p>
+                        {lv.documentName && (
+                          <div className="pt-1 flex items-center gap-1.5 text-[10px] text-indigo-600 dark:text-indigo-400">
+                            <FileText className="h-3.5 w-3.5" />
+                            <a href={lv.documentUrl} target="_blank" referrerPolicy="no-referrer" rel="noreferrer" className="underline hover:text-indigo-500">
+                              {lv.documentName}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-900">
+                      <div className="mb-3">
+                        <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">Approval Remarks</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Approved. Please ensure attendance is updated."
+                          value={remarksMap[lv.id] || ""}
+                          onChange={(e) => setRemarksMap({ ...remarksMap, [lv.id]: e.target.value })}
+                          className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => updateStatusMutation.mutate({ id: lv.id, status: "Rejected", remarks: remarksMap[lv.id] || "" })}
+                          disabled={updateStatusMutation.isPending}
+                          className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-xs font-semibold rounded-lg transition"
+                        >
+                          Reject Request
+                        </button>
+                        <button
+                          onClick={() => updateStatusMutation.mutate({ id: lv.id, status: "Approved", remarks: remarksMap[lv.id] || "" })}
+                          disabled={updateStatusMutation.isPending}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-sm transition"
+                        >
+                          Approve & Forward
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Historical student approvals section */}
+          <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-6 shadow-sm">
+            <h3 className="text-xs font-sans font-bold uppercase tracking-wider text-slate-800 dark:text-white mb-4">
+              Historical Student Leave Logs
+            </h3>
+            {studentHistoryLeaves.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No historical student leaves logged.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-sans text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-zinc-900 text-slate-400 font-mono text-[10px] uppercase">
+                      <th className="py-3">Student</th>
+                      <th className="py-3">Absence Period</th>
+                      <th className="py-3">Reason</th>
+                      <th className="py-3">My Remarks</th>
+                      <th className="py-3 text-right">Current Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-900">
+                    {studentHistoryLeaves.map((lv) => (
+                      <tr key={lv.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-950/20 transition">
+                        <td className="py-3 font-semibold text-slate-800 dark:text-zinc-200">
+                          {lv.studentName}
+                          <span className="block text-[9px] text-slate-400 font-mono mt-0.5">{lv.enrollmentNo || "2024CS082"}</span>
+                        </td>
+                        <td className="py-3 font-mono text-[11px] text-slate-500">{lv.startDate} to {lv.endDate}</td>
+                        <td className="py-3 text-slate-600 dark:text-zinc-400 italic max-w-xs truncate">"{lv.reason}"</td>
+                        <td className="py-3 text-slate-500">{lv.facultyRemarks || "-"}</td>
+                        <td className="py-3 text-right">
+                          <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] ${
+                            lv.status === "Approved"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              : lv.status === "Rejected"
+                              ? "bg-rose-500/10 text-rose-500"
+                              : lv.status === "Pending Principal Approval"
+                              ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                              : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                          }`}>
+                            {lv.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Form apply left */}
+          <div className="lg:col-span-1 rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-5 shadow-sm h-fit">
+            <h3 className="text-xs font-sans font-bold uppercase tracking-wider text-slate-800 dark:text-white mb-4">Apply for Leave</h3>
+            <form onSubmit={handleApplyLeave} className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 block mb-1">Start Date</label>
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none" required />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 block mb-1">End Date</label>
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none" required />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold tracking-wider text-slate-400 block mb-1">Reason Justification</label>
+                <textarea rows={4} value={reason} onChange={e => setReason(e.target.value)} placeholder="State the reason for leave requests..." className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none" required />
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-semibold py-2 rounded transition shadow-md">
+                Submit Leave Application
+              </button>
+            </form>
+          </div>
+
+          {/* Leave list right */}
+          <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-6 shadow-sm">
+            <h3 className="text-xs font-sans font-bold uppercase tracking-wider text-slate-800 dark:text-white mb-4">Historical requests status</h3>
+            {myLeaves.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No leave requests submitted yet.</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {myLeaves.map((lv, idx) => {
+                  const statusColors = {
+                    "Pending Faculty Approval": "text-amber-500 bg-amber-500/10 border-amber-500/20",
+                    "Pending Principal Approval": "text-sky-500 bg-sky-500/10 border-sky-500/20",
+                    Approved: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+                    Rejected: "text-rose-500 bg-rose-500/10 border-rose-500/20",
+                    "Rejected by Faculty": "text-orange-500 bg-orange-500/10 border-orange-500/20"
+                  };
+                  return (
+                    <div key={idx} className="p-4 border border-slate-100 dark:border-zinc-900 bg-slate-50/50 dark:bg-zinc-900/30 rounded-lg flex justify-between items-start">
+                      <div>
+                        <span className="text-[9px] text-slate-400 block font-mono">APPLIED ON {lv.appliedOn}</span>
+                        <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-200 mt-1">{lv.startDate} &rarr; {lv.endDate}</h4>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">{lv.reason}</p>
+                      </div>
+                      <span className={`text-[9px] font-mono font-bold uppercase px-2.5 py-1 rounded border ${statusColors[lv.status as keyof typeof statusColors] || "text-slate-500 bg-slate-50"}`}>
+                        {lv.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

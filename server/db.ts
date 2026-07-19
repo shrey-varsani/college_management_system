@@ -183,13 +183,22 @@ export interface LeaveRequest {
   id: string;
   studentId: string;
   studentName: string;
+  enrollmentNo?: string;
+  branch?: string;
+  semester?: string;
   startDate: string;
   endDate: string;
   reason: string;
-  status: "Pending" | "Approved" | "Rejected";
+  status: "Pending" | "Approved" | "Rejected" | "Pending Faculty Approval" | "Pending Principal Approval" | "Rejected by Faculty";
   appliedOn: string;
   documentUrl?: string;
   documentName?: string;
+  facultyRemarks?: string;
+  facultyApprovedAt?: string;
+  facultyId?: string;
+  facultyName?: string;
+  principalRemarks?: string;
+  principalApprovedAt?: string;
 }
 
 export interface StudentNotification {

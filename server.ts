@@ -1531,7 +1531,7 @@ app.get("/api/notices", authenticateToken, (req, res) => {
 app.get("/api/leave-requests", authenticateToken, (req, res) => {
   try {
     const requests = CollegeDatabase.getLeaveRequests();
-    if (req.user.role === "student" || req.user.role === "faculty") {
+    if (req.user.role === "student") {
       return res.json(requests.filter(r => r.studentId === req.user.id));
     }
     res.json(requests);
@@ -1548,14 +1548,24 @@ app.post("/api/leave-requests", authenticateToken, (req, res) => {
     }
 
     const requests = CollegeDatabase.getLeaveRequests();
+    const dbUser = CollegeDatabase.getUsers().find(u => u.id === req.user.id);
+    const enrollmentNo = dbUser?.enrollmentNo || dbUser?.rollNumber || "2024CS082";
+    const branch = dbUser?.branch || dbUser?.department || "Computer Science";
+    const semester = dbUser?.semester || "Semester V";
+
+    const status = req.user.role === "student" ? ("Pending Faculty Approval" as const) : ("Pending Principal Approval" as const);
+
     const newRequest = {
       id: "lv_" + Math.random().toString(36).substr(2, 9),
       studentId: req.user.id,
       studentName: req.user.fullName,
+      enrollmentNo,
+      branch,
+      semester,
       startDate,
       endDate,
       reason,
-      status: "Pending" as const,
+      status,
       appliedOn: new Date().toISOString().split("T")[0],
       documentUrl,
       documentName
@@ -1563,18 +1573,34 @@ app.post("/api/leave-requests", authenticateToken, (req, res) => {
 
     requests.push(newRequest);
     CollegeDatabase.saveLeaveRequests(requests);
+
+    // If student applied, generate notification for faculty
+    if (req.user.role === "student") {
+      const notifications = CollegeDatabase.getNotifications();
+      notifications.push({
+        id: "not_" + Math.random().toString(36).substr(2, 9),
+        studentId: "faculty",
+        title: "New Student Leave Application",
+        message: `Student ${req.user.fullName} (${enrollmentNo}) has submitted a leave application from ${startDate} to ${endDate}.`,
+        type: "general" as const,
+        timestamp: new Date().toISOString(),
+        isRead: false
+      });
+      CollegeDatabase.saveNotifications(notifications);
+    }
+
     res.status(201).json({ message: "Leave application registered successfully!", request: newRequest });
   } catch (error: any) {
     res.status(500).json({ message: "Failed to file leave", error: error.message });
   }
 });
 
-// Update leave request status (Principal only)
-app.post("/api/leave-requests/status/:id", authenticateToken, authorizeRoles("principal"), (req, res) => {
+// Update leave request status (Faculty or Principal)
+app.post("/api/leave-requests/status/:id", authenticateToken, authorizeRoles("faculty", "principal"), (req, res) => {
   try {
-    const { status } = req.body;
-    if (status !== "Approved" && status !== "Rejected") {
-      return res.status(400).json({ message: "Status must be Approved or Rejected" });
+    const { status, remarks } = req.body;
+    if (!status) {
+      return res.status(400).json({ message: "Status parameter is required" });
     }
 
     const requests = CollegeDatabase.getLeaveRequests();
@@ -1584,8 +1610,77 @@ app.post("/api/leave-requests/status/:id", authenticateToken, authorizeRoles("pr
       return res.status(404).json({ message: "Leave request not found" });
     }
 
-    requests[index].status = status;
+    const leave = requests[index];
+    const notifications = CollegeDatabase.getNotifications();
+
+    if (req.user.role === "faculty") {
+      if (status === "Approved") {
+        leave.status = "Pending Principal Approval";
+        leave.facultyRemarks = remarks || "Approved by Faculty Coordinator";
+        leave.facultyApprovedAt = new Date().toISOString();
+        leave.facultyId = req.user.id;
+        leave.facultyName = req.user.fullName;
+
+        notifications.push({
+          id: "not_" + Math.random().toString(36).substr(2, 9),
+          studentId: "principal",
+          title: "Leave Request Awaiting Approval",
+          message: `Leave request for student ${leave.studentName} has been approved by Faculty ${req.user.fullName} and forwarded for principal authorization.`,
+          type: "general" as const,
+          timestamp: new Date().toISOString(),
+          isRead: false
+        });
+      } else if (status === "Rejected") {
+        leave.status = "Rejected by Faculty";
+        leave.facultyRemarks = remarks || "Rejected by Faculty Coordinator";
+        leave.facultyApprovedAt = new Date().toISOString();
+        leave.facultyId = req.user.id;
+        leave.facultyName = req.user.fullName;
+
+        notifications.push({
+          id: "not_" + Math.random().toString(36).substr(2, 9),
+          studentId: leave.studentId,
+          title: "Leave Request Rejected",
+          message: `Your leave request from ${leave.startDate} to ${leave.endDate} has been rejected by Faculty ${req.user.fullName}. Remarks: ${remarks || "None"}`,
+          type: "general" as const,
+          timestamp: new Date().toISOString(),
+          isRead: false
+        });
+      }
+    } else if (req.user.role === "principal") {
+      if (status === "Approved") {
+        leave.status = "Approved";
+        leave.principalRemarks = remarks || "Approved by Principal";
+        leave.principalApprovedAt = new Date().toISOString();
+
+        notifications.push({
+          id: "not_" + Math.random().toString(36).substr(2, 9),
+          studentId: leave.studentId,
+          title: "Leave Request Approved",
+          message: `Your leave request from ${leave.startDate} to ${leave.endDate} has been approved by the Principal. Remarks: ${remarks || "None"}`,
+          type: "general" as const,
+          timestamp: new Date().toISOString(),
+          isRead: false
+        });
+      } else if (status === "Rejected") {
+        leave.status = "Rejected";
+        leave.principalRemarks = remarks || "Rejected by Principal";
+        leave.principalApprovedAt = new Date().toISOString();
+
+        notifications.push({
+          id: "not_" + Math.random().toString(36).substr(2, 9),
+          studentId: leave.studentId,
+          title: "Leave Request Rejected by Principal",
+          message: `Your leave request from ${leave.startDate} to ${leave.endDate} has been rejected by the Principal. Remarks: ${remarks || "None"}`,
+          type: "general" as const,
+          timestamp: new Date().toISOString(),
+          isRead: false
+        });
+      }
+    }
+
     CollegeDatabase.saveLeaveRequests(requests);
+    CollegeDatabase.saveNotifications(notifications);
 
     // Audit Log
     const auditLogs = CollegeDatabase.getExamAuditLogs();
@@ -1594,13 +1689,13 @@ app.post("/api/leave-requests/status/:id", authenticateToken, authorizeRoles("pr
       timestamp: new Date().toISOString(),
       userId: req.user.id,
       userEmail: req.user.email,
-      action: `Leave ${status}`,
-      details: `${status} leave request for student ${requests[index].studentName} (${requests[index].startDate} to ${requests[index].endDate})`
+      action: `Leave status update: ${status}`,
+      details: `Updated leave status to ${leave.status} for student ${leave.studentName} (${leave.startDate} to ${leave.endDate})`
     };
     auditLogs.push(auditLogEntry);
     CollegeDatabase.saveExamAuditLogs(auditLogs);
 
-    res.json({ message: `Successfully updated leave request status to ${status}!`, request: requests[index] });
+    res.json({ message: `Successfully updated leave status to ${leave.status}!`, request: leave });
   } catch (error: any) {
     res.status(500).json({ message: "Failed to update leave request status", error: error.message });
   }
@@ -1610,7 +1705,11 @@ app.post("/api/leave-requests/status/:id", authenticateToken, authorizeRoles("pr
 app.get("/api/notifications", authenticateToken, (req, res) => {
   try {
     const notifications = CollegeDatabase.getNotifications();
-    const userNotifications = notifications.filter(n => n.studentId === req.user.id || n.studentId === "all");
+    const userNotifications = notifications.filter(n => 
+      n.studentId === req.user.id || 
+      n.studentId === "all" || 
+      n.studentId === req.user.role
+    );
     
     // Seed some initial system notifications if empty
     if (userNotifications.length === 0) {
@@ -1618,7 +1717,7 @@ app.get("/api/notifications", authenticateToken, (req, res) => {
         {
           id: "not_seed_1",
           studentId: req.user.id,
-          title: "Welcome to Student Hub",
+          title: "Welcome to CampusFlow",
           message: "Explore your academic portal. Access subject evaluations, exam schedules, and library loans here.",
           type: "general" as const,
           timestamp: new Date().toISOString(),
@@ -1627,7 +1726,7 @@ app.get("/api/notifications", authenticateToken, (req, res) => {
         {
           id: "not_seed_2",
           studentId: req.user.id,
-          title: "Attendance Warning",
+          title: "Attendance Tracker",
           message: "Keep an eye on your subject-wise attendance logs to prevent falling below the 75% credit threshold.",
           type: "attendance" as const,
           timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
@@ -1649,7 +1748,7 @@ app.post("/api/notifications/mark-read", authenticateToken, (req, res) => {
     const { notificationId } = req.body;
     const notifications = CollegeDatabase.getNotifications();
     const updated = notifications.map(n => {
-      if (n.studentId === req.user.id || n.studentId === "all") {
+      if (n.studentId === req.user.id || n.studentId === "all" || n.studentId === req.user.role) {
         if (!notificationId || n.id === notificationId) {
           return { ...n, isRead: true };
         }

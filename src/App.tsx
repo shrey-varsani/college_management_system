@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Provider, useSelector, useDispatch } from "react-redux";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster, toast } from "react-hot-toast";
@@ -40,8 +40,16 @@ const queryClient = new QueryClient({
 });
 
 function MainPortal() {
-  const { user, sidebarOpen } = useSelector((state: RootState) => state.app);
+  const { user, sidebarOpen, theme } = useSelector((state: RootState) => state.app);
   const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [theme]);
 
   // Active workspace tab
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -122,7 +130,7 @@ function MainPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-zinc-950 dark:text-zinc-100 flex flex-col transition-colors duration-200">
+    <div className={`min-h-screen bg-slate-50 text-slate-800 dark:bg-zinc-950 dark:text-zinc-100 flex flex-col transition-colors duration-200 ${theme === "dark" ? "dark" : ""}`}>
       {/* Dynamic Header */}
       <Header onTabChange={setActiveTab} activeTab={activeTab} />
 
@@ -218,7 +226,7 @@ function LoginPanel() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col justify-center items-center px-4 relative overflow-hidden transition-colors duration-200">
+    <div className={`min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col justify-center items-center px-4 relative overflow-hidden transition-colors duration-200 ${theme === "dark" ? "dark" : ""}`}>
       {/* Floating Theme Toggle in Login Panel */}
       <div className="absolute top-4 right-4 z-20">
         <button

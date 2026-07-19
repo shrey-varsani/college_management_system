@@ -115,11 +115,11 @@ export default function CalendarView() {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="flex items-center gap-2 font-grotesk text-2xl font-semibold tracking-tight text-white">
+          <h2 className="flex items-center gap-2 font-grotesk text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
             <Calendar className="h-6 w-6 text-indigo-500" />
             Class Timetable & Calendar
           </h2>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
             {user?.role === "student"
               ? "View class schedules for your active courses."
               : user?.role === "faculty"
@@ -132,39 +132,39 @@ export default function CalendarView() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Course schedule list sidebar */}
         <div className="lg:col-span-1 flex flex-col gap-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-            <h3 className="font-grotesk font-semibold text-zinc-200 mb-3 flex items-center gap-1.5 text-sm">
+          <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-5 shadow-sm dark:shadow-xl">
+            <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 mb-3 flex items-center gap-1.5 text-sm">
               <Sparkles className="h-4 w-4 text-indigo-400" />
               Schedule Summary
             </h3>
             
             {myCourses.length === 0 ? (
-              <div className="text-zinc-500 text-xs py-2">
+              <div className="text-slate-500 dark:text-zinc-500 text-xs py-2">
                 No active class timetables assigned. Join courses or run automated scheduling to fill dates.
               </div>
             ) : (
               <div className="flex flex-col gap-3">
                 {myCourses.map((c) => (
-                  <div key={c.id} className="rounded-lg bg-zinc-900 border border-zinc-800 p-3 flex flex-col gap-1.5">
+                  <div key={c.id} className="rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-3 flex flex-col gap-1.5">
                     <div className="flex justify-between items-center">
-                      <span className="font-mono text-xs font-semibold text-indigo-400">{c.code}</span>
-                      <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">{c.credits} cr</span>
+                      <span className="font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400">{c.code}</span>
+                      <span className="text-[10px] bg-slate-200 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400 px-2 py-0.5 rounded-full">{c.credits} cr</span>
                     </div>
-                    <div className="text-xs font-medium text-zinc-200 truncate">{c.name}</div>
+                    <div className="text-xs font-medium text-slate-800 dark:text-zinc-200 truncate">{c.name}</div>
                     
                     {c.timeSlot ? (
-                      <div className="flex flex-col gap-1 text-[10px] text-zinc-400">
+                      <div className="flex flex-col gap-1 text-[10px] text-slate-500 dark:text-zinc-400">
                         <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-zinc-500" />
+                          <Clock className="h-3 w-3 text-slate-400 dark:text-zinc-500" />
                           <span>{c.timeSlot}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-zinc-500" />
+                          <MapPin className="h-3 w-3 text-slate-400 dark:text-zinc-500" />
                           <span>{c.room || "No room assigned"}</span>
                         </div>
                       </div>
                     ) : (
-                      <span className="text-[10px] text-rose-400">Unscheduled</span>
+                      <span className="text-[10px] text-rose-500">Unscheduled</span>
                     )}
                   </div>
                 ))}
@@ -174,10 +174,10 @@ export default function CalendarView() {
         </div>
 
         {/* The interactive Calendar itself */}
-        <div className="lg:col-span-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4 shadow-xl">
-          <div className="custom-calendar-dark text-zinc-100">
+        <div className="lg:col-span-3 rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-4 shadow-sm dark:shadow-xl">
+          <div className="text-slate-800 dark:text-zinc-100">
             {isLoadingCourses ? (
-              <div className="h-96 flex items-center justify-center text-zinc-400 font-sans">
+              <div className="h-96 flex items-center justify-center text-slate-500 dark:text-zinc-400 font-sans">
                 Loading academic schedule matrix...
               </div>
             ) : (

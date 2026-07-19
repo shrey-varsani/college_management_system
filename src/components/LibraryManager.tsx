@@ -149,11 +149,11 @@ export default function LibraryManager() {
       {/* Header and Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="flex items-center gap-2 font-grotesk text-2xl font-semibold tracking-tight text-white">
+          <h2 className="flex items-center gap-2 font-grotesk text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
             <Library className="h-6 w-6 text-indigo-500" />
             Library Administration & Catalog
           </h2>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
             Search physical assets, manage checkout lists, and monitor overdue deadlines.
           </p>
         </div>
@@ -183,8 +183,8 @@ export default function LibraryManager() {
       {/* Grid of lists */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Books List Panel */}
-        <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col gap-4 shadow-xl">
-          <h3 className="font-grotesk font-semibold text-zinc-200 text-sm">Asset Catalog Inventory</h3>
+        <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-sm dark:shadow-xl">
+          <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">Asset Catalog Inventory</h3>
 
           {/* Catalog search/filter bar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -197,14 +197,14 @@ export default function LibraryManager() {
                 placeholder="Search title, author, ISBN..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded px-8 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-8 py-1.5 text-xs text-slate-800 dark:text-zinc-300 focus:outline-none focus:border-indigo-500"
               />
             </div>
 
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-zinc-900 border border-zinc-800 rounded px-3 py-1.5 text-xs text-zinc-300 focus:outline-none"
+              className="bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-1.5 text-xs text-slate-800 dark:text-zinc-300 focus:outline-none"
             >
               <option value="All">All Categories</option>
               <option value="Computer Science">Computer Science</option>
@@ -213,11 +213,11 @@ export default function LibraryManager() {
           </div>
 
           {isLoadingBooks ? (
-            <div className="h-48 flex items-center justify-center text-zinc-400 text-xs font-sans">
+            <div className="h-48 flex items-center justify-center text-slate-500 dark:text-zinc-400 text-xs font-sans">
               Syncing library catalog copies...
             </div>
           ) : filteredBooks.length === 0 ? (
-            <div className="text-zinc-500 text-xs text-center py-8">
+            <div className="text-slate-500 text-xs text-center py-8">
               No volumes match the search criteria.
             </div>
           ) : (
@@ -225,27 +225,27 @@ export default function LibraryManager() {
               {filteredBooks.map((b) => (
                 <div
                   key={b.id}
-                  className="rounded-lg bg-zinc-900 border border-zinc-800/60 p-3.5 flex justify-between items-center hover:border-zinc-700 transition"
+                  className="rounded-lg bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800/60 p-3.5 flex justify-between items-center hover:border-slate-300 dark:hover:border-zinc-700 transition"
                 >
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] text-zinc-500 font-mono tracking-wider">{b.isbn}</span>
-                    <h4 className="text-sm font-medium font-grotesk text-zinc-200">{b.title}</h4>
-                    <p className="text-xs text-zinc-400">by {b.author}</p>
-                    <span className="text-[9px] bg-zinc-850 text-indigo-400 border border-indigo-500/10 rounded px-1.5 py-0.5 w-fit mt-1.5 font-mono uppercase">
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono tracking-wider">{b.isbn}</span>
+                    <h4 className="text-sm font-medium font-grotesk text-slate-800 dark:text-zinc-200">{b.title}</h4>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400">by {b.author}</p>
+                    <span className="text-[9px] bg-slate-100 text-indigo-600 dark:bg-zinc-850 dark:text-indigo-400 border border-indigo-500/10 rounded px-1.5 py-0.5 w-fit mt-1.5 font-mono uppercase">
                       {b.category}
                     </span>
                   </div>
 
                   <div className="text-right flex flex-col items-end gap-1">
-                    <div className="font-mono text-xs text-zinc-300 font-semibold">
+                    <div className="font-mono text-xs text-slate-700 dark:text-zinc-300 font-semibold">
                       {b.availableCopies} / {b.totalCopies} Available
                     </div>
                     {b.availableCopies === 0 ? (
-                      <span className="text-[9px] font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-1.5 py-0.5">
+                      <span className="text-[9px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-1.5 py-0.5">
                         Out of Stock
                       </span>
                     ) : (
-                      <span className="text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5">
+                      <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5">
                         In Library
                       </span>
                     )}
@@ -257,13 +257,13 @@ export default function LibraryManager() {
         </div>
 
         {/* Loan Transactions Panel */}
-        <div className="lg:col-span-1 rounded-xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col gap-4 shadow-xl">
-          <h3 className="font-grotesk font-semibold text-zinc-200 text-sm">
+        <div className="lg:col-span-1 rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-sm dark:shadow-xl">
+          <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">
             {user?.role === "student" ? "My Book Checkouts" : "Active Borrow Ledgers"}
           </h3>
 
           {borrows.length === 0 ? (
-            <div className="text-zinc-500 text-xs py-8 text-center border border-dashed border-zinc-800 rounded-lg">
+            <div className="text-slate-500 text-xs py-8 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-lg">
               No checked-out volume records.
             </div>
           ) : (
@@ -274,38 +274,38 @@ export default function LibraryManager() {
                 const sUser = allUsers.find((u) => u.id === b.studentId);
 
                 return (
-                  <div key={b.id} className="rounded-lg bg-zinc-900/60 border border-zinc-800 p-3.5 flex flex-col gap-2">
+                  <div key={b.id} className="rounded-lg bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 p-3.5 flex flex-col gap-2">
                     <div className="flex justify-between items-start">
                       <div className="truncate pr-2">
-                        <h4 className="text-xs font-semibold text-zinc-200 truncate">{book ? book.title : "Unknown Vol"}</h4>
+                        <h4 className="text-xs font-semibold text-slate-800 dark:text-zinc-200 truncate">{book ? book.title : "Unknown Vol"}</h4>
                         {user?.role !== "student" && sUser && (
-                          <span className="text-[10px] text-indigo-400 font-mono block mt-0.5 truncate">{sUser.fullName}</span>
+                          <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-mono block mt-0.5 truncate">{sUser.fullName}</span>
                         )}
                       </div>
 
                       {b.status === "returned" ? (
-                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 flex items-center gap-1">
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 flex items-center gap-1">
                           <Check className="h-3 w-3" /> Returned
                         </span>
                       ) : isLate ? (
-                        <span className="text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-1.5 py-0.5 flex items-center gap-1 animate-pulse">
+                        <span className="text-[9px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded px-1.5 py-0.5 flex items-center gap-1 animate-pulse">
                           <AlertCircle className="h-3 w-3" /> Overdue
                         </span>
                       ) : (
-                        <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5 flex items-center gap-1">
+                        <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5 flex items-center gap-1">
                           <Clock className="h-3 w-3" /> Checked Out
                         </span>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-[10px] text-zinc-500 font-mono mt-1 pt-2 border-t border-zinc-850">
+                    <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 dark:text-zinc-500 font-mono mt-1 pt-2 border-t border-slate-100 dark:border-zinc-850">
                       <div>
-                        <span className="block text-zinc-600 font-bold">ISSUED DATE:</span>
+                        <span className="block text-slate-400 dark:text-zinc-600 font-bold">ISSUED DATE:</span>
                         <span>{b.borrowDate}</span>
                       </div>
                       <div>
-                        <span className="block text-zinc-600 font-bold">DEADLINE DUE:</span>
-                        <span className={isLate ? "text-rose-400 font-semibold" : ""}>{b.dueDate}</span>
+                        <span className="block text-slate-400 dark:text-zinc-600 font-bold">DEADLINE DUE:</span>
+                        <span className={isLate ? "text-rose-500 dark:text-rose-400 font-semibold" : ""}>{b.dueDate}</span>
                       </div>
                     </div>
 
@@ -313,7 +313,7 @@ export default function LibraryManager() {
                       <button
                         onClick={() => returnBookMutation.mutate(b.id)}
                         disabled={returnBookMutation.isPending}
-                        className="w-full bg-zinc-850 hover:bg-emerald-600 text-zinc-400 hover:text-black border border-zinc-800 hover:border-transparent font-sans text-xs font-semibold py-1.5 rounded transition mt-1.5 flex items-center justify-center gap-1"
+                        className="w-full bg-slate-100 hover:bg-emerald-600 text-slate-700 hover:text-white border border-slate-200 hover:border-transparent dark:bg-zinc-850 dark:hover:bg-emerald-600 dark:text-zinc-400 dark:hover:text-white dark:border-zinc-800 hover:border-transparent font-sans text-xs font-semibold py-1.5 rounded transition mt-1.5 flex items-center justify-center gap-1"
                       >
                         <RotateCcw className="h-3 w-3" />
                         Log Return Receipt
@@ -330,66 +330,66 @@ export default function LibraryManager() {
       {/* Add Catalog Book Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col gap-4 shadow-2xl">
-            <h3 className="font-grotesk font-semibold text-zinc-200 text-base">Catalog New Physical Book</h3>
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-2xl">
+            <h3 className="font-grotesk font-semibold text-slate-900 dark:text-zinc-200 text-base">Catalog New Physical Book</h3>
 
             <form onSubmit={handleAddBookSubmit} className="flex flex-col gap-4">
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Book Title</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Book Title</label>
                 <input
                   type="text"
                   placeholder="Design Patterns"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Author Name(s)</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Author Name(s)</label>
                 <input
                   type="text"
                   placeholder="Erich Gamma, Ralph Johnson"
                   value={newAuthor}
                   onChange={(e) => setNewAuthor(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-zinc-400 block mb-1">ISBN-13</label>
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">ISBN-13</label>
                   <input
                     type="text"
                     placeholder="978-0201633610"
                     value={newIsbn}
                     onChange={(e) => setNewIsbn(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                     required
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Total Copies</label>
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Total Copies</label>
                   <input
                     type="number"
                     min="1"
                     max="50"
                     value={newCopies}
                     onChange={(e) => setNewCopies(Number(e.target.value))}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Subject Category</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Subject Category</label>
                 <select
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                 >
                   <option value="Computer Science">Computer Science</option>
                   <option value="Mathematics">Mathematics</option>
@@ -400,7 +400,7 @@ export default function LibraryManager() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 font-sans text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg hover:text-white"
+                  className="px-4 py-2 font-sans text-xs font-medium text-slate-500 hover:text-slate-800 bg-slate-50 border border-slate-200 dark:text-zinc-400 dark:bg-zinc-900 dark:border-zinc-800 rounded-lg dark:hover:text-white"
                 >
                   Cancel
                 </button>
@@ -420,16 +420,16 @@ export default function LibraryManager() {
       {/* Issue Book Loan Modal */}
       {showBorrowModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col gap-4 shadow-2xl">
-            <h3 className="font-grotesk font-semibold text-zinc-200 text-base">Issue Book Loan Transaction</h3>
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-2xl">
+            <h3 className="font-grotesk font-semibold text-slate-900 dark:text-zinc-200 text-base">Issue Book Loan Transaction</h3>
 
             <form onSubmit={handleIssueLoanSubmit} className="flex flex-col gap-4">
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Select Book Volume</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Select Book Volume</label>
                 <select
                   value={selectedBookId}
                   onChange={(e) => setSelectedBookId(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                   required
                 >
                   <option value="">-- Choose Book --</option>
@@ -444,26 +444,26 @@ export default function LibraryManager() {
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Scholar Borrower Email</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Scholar Borrower Email</label>
                 <input
                   type="email"
                   placeholder="student@college.edu"
                   value={borrowerEmail}
                   onChange={(e) => setBorrowerEmail(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Loan Duration Days</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Loan Duration Days</label>
                 <input
                   type="number"
                   min="3"
                   max="30"
                   value={loanDays}
                   onChange={(e) => setLoanDays(Number(e.target.value))}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                   required
                 />
               </div>
@@ -472,7 +472,7 @@ export default function LibraryManager() {
                 <button
                   type="button"
                   onClick={() => setShowBorrowModal(false)}
-                  className="px-4 py-2 font-sans text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg hover:text-white"
+                  className="px-4 py-2 font-sans text-xs font-medium text-slate-500 hover:text-slate-800 bg-slate-50 border border-slate-200 dark:text-zinc-400 dark:bg-zinc-900 dark:border-zinc-800 rounded-lg dark:hover:text-white"
                 >
                   Cancel
                 </button>

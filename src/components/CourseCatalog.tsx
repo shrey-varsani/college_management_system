@@ -199,11 +199,11 @@ export default function CourseCatalog() {
       {/* Header and Smart Solvers panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="flex items-center gap-2 font-grotesk text-2xl font-semibold tracking-tight text-white">
+          <h2 className="flex items-center gap-2 font-grotesk text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
             <BookOpen className="h-6 w-6 text-indigo-500" />
             Curriculum & Catalog
           </h2>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
             Browse registered classes, self-register, and manage timetables.
           </p>
         </div>
@@ -249,7 +249,7 @@ export default function CourseCatalog() {
             </button>
           </div>
           
-          <div className="rounded border border-zinc-800 bg-zinc-950 p-4 font-mono text-[10px] text-zinc-300 max-h-48 overflow-y-auto flex flex-col gap-1 shadow-inner leading-relaxed">
+          <div className="rounded border border-slate-200 bg-slate-50 dark:border-zinc-800 dark:bg-zinc-950 p-4 font-mono text-[10px] text-slate-700 dark:text-zinc-300 max-h-48 overflow-y-auto flex flex-col gap-1 shadow-inner leading-relaxed">
             {schedulerLogs.map((log, index) => (
               <div key={index} className={log.includes("✅") ? "text-emerald-400 font-semibold" : log.includes("❌") ? "text-rose-400 font-semibold" : ""}>
                 {log}
@@ -270,7 +270,7 @@ export default function CourseCatalog() {
             placeholder="Search code, name, or keywords..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+            className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
           />
         </div>
 
@@ -281,7 +281,7 @@ export default function CourseCatalog() {
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+            className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
           >
             <option value="All">All Departments</option>
             <option value="Computer Science">Computer Science</option>
@@ -294,11 +294,11 @@ export default function CourseCatalog() {
 
       {/* Courses grid */}
       {isLoadingCourses ? (
-        <div className="h-64 flex items-center justify-center text-zinc-400 font-sans text-sm">
+        <div className="h-64 flex items-center justify-center text-slate-500 dark:text-zinc-400 font-sans text-sm">
           Fetching central catalog records...
         </div>
       ) : filteredCourses.length === 0 ? (
-        <div className="h-48 flex items-center justify-center border border-dashed border-zinc-800 rounded-xl text-zinc-500 font-sans text-xs">
+        <div className="h-48 flex items-center justify-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl text-slate-400 dark:text-zinc-500 font-sans text-xs">
           No courses found matching search criteria.
         </div>
       ) : (
@@ -311,39 +311,39 @@ export default function CourseCatalog() {
             return (
               <div
                 key={c.id}
-                className="flex flex-col justify-between rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-lg hover:border-zinc-700 transition duration-150"
+                className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-5 shadow-sm dark:shadow-lg hover:border-slate-300 dark:hover:border-zinc-700 transition duration-150"
               >
                 <div>
                   <div className="flex justify-between items-start gap-4">
-                    <span className="font-mono text-xs font-semibold text-indigo-400 uppercase">
+                    <span className="font-mono text-xs font-semibold text-indigo-500 dark:text-indigo-400 uppercase">
                       {c.code}
                     </span>
-                    <span className="text-[10px] font-mono font-medium text-zinc-500 bg-zinc-900 border border-zinc-800/80 rounded px-2 py-0.5">
+                    <span className="text-[10px] font-mono font-medium text-slate-500 bg-slate-50 border border-slate-200 dark:text-zinc-400 dark:bg-zinc-900 dark:border-zinc-800/80 rounded px-2 py-0.5">
                       {c.credits} Credits
                     </span>
                   </div>
 
-                  <h3 className="font-grotesk font-semibold text-zinc-100 text-sm mt-2 truncate">
+                  <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-100 text-sm mt-2 truncate">
                     {c.name}
                   </h3>
-                  <div className="font-mono text-[9px] text-zinc-400 mt-0.5 uppercase tracking-wide">
+                  <div className="font-mono text-[9px] text-slate-500 dark:text-zinc-400 mt-0.5 uppercase tracking-wide">
                     {c.department}
                   </div>
 
-                  <p className="text-zinc-400 text-xs mt-3 leading-relaxed line-clamp-3">
+                  <p className="text-slate-600 dark:text-zinc-400 text-xs mt-3 leading-relaxed line-clamp-3">
                     {c.description || "No description provided for this catalog listing."}
                   </p>
 
                   {/* Manual Scheduler section (Principal Only) */}
                   {isEditing ? (
-                    <div className="mt-4 pt-4 border-t border-zinc-800/60 flex flex-col gap-3">
-                      <span className="font-grotesk text-[11px] font-bold text-amber-400">Manual Timetable Scheduler</span>
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-zinc-800/60 flex flex-col gap-3">
+                      <span className="font-grotesk text-[11px] font-bold text-amber-500 dark:text-amber-400">Manual Timetable Scheduler</span>
                       <div>
-                        <label className="text-[9px] text-zinc-500 block mb-0.5 font-bold uppercase">Assign Faculty</label>
+                        <label className="text-[9px] text-slate-500 block mb-0.5 font-bold uppercase">Assign Faculty</label>
                         <select
                           value={assignedFacultyId}
                           onChange={(e) => setAssignedFacultyId(e.target.value)}
-                          className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[11px] text-zinc-300 focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-2 py-1 text-[11px] text-slate-800 dark:text-zinc-300 focus:outline-none"
                         >
                           <option value="">-- No Professor --</option>
                           {facultyMembers
@@ -358,23 +358,23 @@ export default function CourseCatalog() {
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="text-[9px] text-zinc-500 block mb-0.5 font-bold uppercase">Time Slot</label>
+                          <label className="text-[9px] text-slate-500 block mb-0.5 font-bold uppercase">Time Slot</label>
                           <input
                             type="text"
                             placeholder="e.g. Monday 09:00 - 10:30"
                             value={assignedTimeSlot}
                             onChange={(e) => setAssignedTimeSlot(e.target.value)}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[10px] text-zinc-300 focus:outline-none"
+                            className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-2 py-1 text-[10px] text-slate-800 dark:text-zinc-300 focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] text-zinc-500 block mb-0.5 font-bold uppercase">Room</label>
+                          <label className="text-[9px] text-slate-500 block mb-0.5 font-bold uppercase">Room</label>
                           <input
                             type="text"
                             placeholder="e.g. Room 101"
                             value={assignedRoom}
                             onChange={(e) => setAssignedRoom(e.target.value)}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[10px] text-zinc-300 focus:outline-none"
+                            className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-2 py-1 text-[10px] text-slate-800 dark:text-zinc-300 focus:outline-none"
                           />
                         </div>
                       </div>
@@ -382,7 +382,7 @@ export default function CourseCatalog() {
                       <div className="flex gap-2 justify-end mt-1">
                         <button
                           onClick={() => setEditingCourseId(null)}
-                          className="px-2 py-1 text-[10px] font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded hover:text-white"
+                          className="px-2 py-1 text-[10px] font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded hover:text-slate-900 dark:text-zinc-400 dark:bg-zinc-900 dark:border-zinc-800 dark:hover:text-white"
                         >
                           Cancel
                         </button>
@@ -395,16 +395,16 @@ export default function CourseCatalog() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-4 pt-4 border-t border-zinc-900/80 flex flex-col gap-1.5 font-mono text-[10px] text-zinc-400">
+                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-zinc-900/80 flex flex-col gap-1.5 font-mono text-[10px] text-slate-600 dark:text-zinc-400">
                       <div className="flex justify-between items-center">
-                        <span className="text-zinc-500 font-bold uppercase tracking-wider text-[9px]">TIMETABLE SLOT:</span>
-                        <span className={c.timeSlot ? "text-zinc-300 font-medium" : "text-rose-400 font-bold"}>
+                        <span className="text-slate-400 dark:text-zinc-500 font-bold uppercase tracking-wider text-[9px]">TIMETABLE SLOT:</span>
+                        <span className={c.timeSlot ? "text-slate-700 dark:text-zinc-300 font-medium" : "text-rose-500 dark:text-rose-400 font-bold"}>
                           {c.timeSlot || "Not Scheduled"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-zinc-500 font-bold uppercase tracking-wider text-[9px]">CLASS ROOM:</span>
-                        <span className={c.room ? "text-zinc-300 font-medium" : "text-rose-400 font-bold"}>
+                        <span className="text-slate-400 dark:text-zinc-500 font-bold uppercase tracking-wider text-[9px]">CLASS ROOM:</span>
+                        <span className={c.room ? "text-slate-700 dark:text-zinc-300 font-medium" : "text-rose-500 dark:text-rose-400 font-bold"}>
                           {c.room || "Not Assigned"}
                         </span>
                       </div>
@@ -412,7 +412,7 @@ export default function CourseCatalog() {
                   )}
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-zinc-900 flex justify-between items-center gap-4">
+                <div className="mt-6 pt-4 border-t border-slate-100 dark:border-zinc-900 flex justify-between items-center gap-4">
                   {/* Student enroll actions */}
                   {user?.role === "student" && (
                     <>
@@ -420,7 +420,7 @@ export default function CourseCatalog() {
                         <button
                           onClick={() => enrollmentId && dropMutation.mutate(enrollmentId)}
                           disabled={dropMutation.isPending}
-                          className="w-full py-1.5 rounded bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-black border border-rose-500/30 font-sans text-xs font-semibold transition"
+                          className="w-full py-1.5 rounded bg-rose-500/10 hover:bg-rose-600 text-rose-600 dark:text-rose-400 hover:text-white border border-rose-500/30 font-sans text-xs font-semibold transition"
                         >
                           Drop Course
                         </button>
@@ -446,7 +446,7 @@ export default function CourseCatalog() {
                           setAssignedTimeSlot(c.timeSlot || "");
                           setAssignedRoom(c.room || "");
                         }}
-                        className="flex-1 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 font-sans text-xs font-semibold transition flex items-center justify-center gap-1"
+                        className="flex-1 py-1.5 rounded bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white border border-slate-250 dark:border-zinc-800 font-sans text-xs font-semibold transition flex items-center justify-center gap-1"
                       >
                         <CalendarCheck className="h-3.5 w-3.5" />
                         Schedule
@@ -458,7 +458,7 @@ export default function CourseCatalog() {
                             deleteCourseMutation.mutate(c.id);
                           }
                         }}
-                        className="p-1.5 rounded border border-rose-950 bg-rose-950/20 text-rose-400 hover:bg-rose-600 hover:text-black transition"
+                        className="p-1.5 rounded border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white dark:border-rose-950 dark:bg-rose-950/20 dark:text-rose-400 dark:hover:bg-rose-600 dark:hover:text-white transition"
                         title="Delete Course Catalog"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -475,54 +475,54 @@ export default function CourseCatalog() {
       {/* Create Course Modal popup */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col gap-4 shadow-2xl">
-            <h3 className="font-grotesk font-semibold text-zinc-200 text-base">Register Academic Catalog Course</h3>
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 flex flex-col gap-4 shadow-2xl">
+            <h3 className="font-grotesk font-semibold text-slate-900 dark:text-zinc-200 text-base">Register Academic Catalog Course</h3>
             
             <form onSubmit={handleCreateCourseSubmit} className="flex flex-col gap-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-1">
-                  <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Code</label>
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Code</label>
                   <input
                     type="text"
                     placeholder="CS101"
                     value={newCode}
                     onChange={(e) => setNewCode(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                     required
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Credits</label>
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Credits</label>
                   <input
                     type="number"
                     min="1"
                     max="6"
                     value={newCredits}
                     onChange={(e) => setNewCredits(Number(e.target.value))}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Course Name</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Course Name</label>
                 <input
                   type="text"
                   placeholder="Intro to Programming"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Academic Department</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Academic Department</label>
                 <select
                   value={newDept}
                   onChange={(e) => setNewDept(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                 >
                   <option value="Computer Science">Computer Science</option>
                   <option value="Mathematics">Mathematics</option>
@@ -530,13 +530,13 @@ export default function CourseCatalog() {
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Syllabus / Description</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Syllabus / Description</label>
                 <textarea
                   placeholder="Describe core course components and constraints..."
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
                   rows={3}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none"
                 />
               </div>
 
@@ -544,7 +544,7 @@ export default function CourseCatalog() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 font-sans text-xs font-medium text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg hover:text-white"
+                  className="px-4 py-2 font-sans text-xs font-medium text-slate-500 hover:text-slate-800 bg-slate-50 border border-slate-200 dark:text-zinc-400 dark:bg-zinc-900 dark:border-zinc-800 rounded-lg dark:hover:text-white"
                 >
                   Cancel
                 </button>

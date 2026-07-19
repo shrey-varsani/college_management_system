@@ -169,11 +169,11 @@ export default function GradeBook() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <h2 className="flex items-center gap-2 font-grotesk text-2xl font-semibold tracking-tight text-white">
+        <h2 className="flex items-center gap-2 font-grotesk text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
           <Award className="h-6 w-6 text-indigo-500" />
           Academic Grade Book
         </h2>
-        <p className="text-sm text-zinc-400 mt-1">
+        <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
           {user?.role === "student"
             ? "View transcript averages and official semester GPA weights."
             : "Post official transcript component weights and view scholar analytics."}
@@ -184,38 +184,38 @@ export default function GradeBook() {
       {user?.role === "student" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* GPA Card */}
-          <div className="md:col-span-1 rounded-xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col justify-between items-center text-center">
+          <div className="md:col-span-1 rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 flex flex-col justify-between items-center text-center shadow-sm dark:shadow-xl">
             <div className="flex flex-col items-center">
-              <span className="font-mono text-xs tracking-wider text-zinc-400 uppercase">Current Cumulative GPA</span>
+              <span className="font-mono text-xs tracking-wider text-slate-500 dark:text-zinc-400 uppercase">Current Cumulative GPA</span>
               <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-5xl font-extrabold tracking-tight text-indigo-400 font-sans">
+                <span className="text-5xl font-extrabold tracking-tight text-indigo-600 dark:text-indigo-400 font-sans">
                   {getStudentGPAMetrics().gpa.toFixed(2)}
                 </span>
-                <span className="text-zinc-500 text-lg">/ 4.00</span>
+                <span className="text-slate-400 dark:text-zinc-500 text-lg">/ 4.00</span>
               </div>
-              <p className="text-xs text-zinc-500 mt-3 max-w-[200px]">
+              <p className="text-xs text-slate-400 dark:text-zinc-500 mt-3 max-w-[200px]">
                 Calculated on {getStudentGPAMetrics().totalCredits} completed & active credits.
               </p>
             </div>
             
-            <div className="w-full mt-6 pt-6 border-t border-zinc-900 grid grid-cols-2 gap-4">
-              <div className="text-center border-r border-zinc-900">
-                <span className="block text-zinc-400 text-xs">Academic Status</span>
-                <span className="font-sans font-medium text-emerald-400 text-sm">Good Standing</span>
+            <div className="w-full mt-6 pt-6 border-t border-slate-100 dark:border-zinc-900 grid grid-cols-2 gap-4">
+              <div className="text-center border-r border-slate-100 dark:border-zinc-900">
+                <span className="block text-slate-500 dark:text-zinc-400 text-xs">Academic Status</span>
+                <span className="font-sans font-medium text-emerald-600 dark:text-emerald-400 text-sm">Good Standing</span>
               </div>
               <div className="text-center">
-                <span className="block text-zinc-400 text-xs">Total Credits</span>
-                <span className="font-mono text-zinc-200 text-sm font-semibold">{getStudentGPAMetrics().totalCredits}</span>
+                <span className="block text-slate-500 dark:text-zinc-400 text-xs">Total Credits</span>
+                <span className="font-mono text-slate-800 dark:text-zinc-200 text-sm font-semibold">{getStudentGPAMetrics().totalCredits}</span>
               </div>
             </div>
           </div>
 
           {/* Transcript details */}
-          <div className="md:col-span-2 rounded-xl border border-zinc-800 bg-zinc-950 p-6">
-            <h3 className="font-grotesk font-semibold text-sm text-zinc-200 mb-4">Fall Semester Grade Summary</h3>
+          <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 shadow-sm dark:shadow-xl">
+            <h3 className="font-grotesk font-semibold text-sm text-slate-800 dark:text-zinc-200 mb-4">Fall Semester Grade Summary</h3>
 
             {enrollments.filter((e) => e.studentId === user.id && e.status === "active").length === 0 ? (
-              <div className="text-zinc-500 text-xs py-8 text-center border border-dashed border-zinc-800 rounded-lg">
+              <div className="text-slate-500 text-xs py-8 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-lg">
                 No active course enrollments found to grade.
               </div>
             ) : (
@@ -228,39 +228,39 @@ export default function GradeBook() {
                     if (!course) return null;
 
                     return (
-                      <div key={enroll.id} className="rounded-lg bg-zinc-900/50 border border-zinc-800/80 p-4">
+                      <div key={enroll.id} className="rounded-lg bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800/80 p-4">
                         <div className="flex justify-between items-start gap-4">
                           <div>
-                            <span className="font-mono text-xs font-semibold text-indigo-400">{course.code}</span>
-                            <h4 className="text-sm font-medium text-zinc-200 mt-0.5">{course.name}</h4>
+                            <span className="font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400">{course.code}</span>
+                            <h4 className="text-sm font-medium text-slate-800 dark:text-zinc-200 mt-0.5">{course.name}</h4>
                           </div>
                           
                           {metrics.totalWeight > 0 ? (
                             <div className="flex items-center gap-3">
                               <div className="text-right">
-                                <span className="block font-mono text-xs font-semibold text-zinc-300">
+                                <span className="block font-mono text-xs font-semibold text-slate-700 dark:text-zinc-300">
                                   {metrics.average.toFixed(1)}%
                                 </span>
-                                <span className="text-[10px] text-zinc-500">{(metrics.totalWeight * 100).toFixed(0)}% evaluated</span>
+                                <span className="text-[10px] text-slate-400 dark:text-zinc-500">{(metrics.totalWeight * 100).toFixed(0)}% evaluated</span>
                               </div>
                               <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded ${metrics.color}`}>
                                 {metrics.letter}
                               </span>
                             </div>
                           ) : (
-                            <span className="text-[11px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded italic">No scores graded yet</span>
+                            <span className="text-[11px] bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400 px-2 py-0.5 rounded italic">No scores graded yet</span>
                           )}
                         </div>
 
                         {/* Component breakdowns */}
                         {metrics.gradesList.length > 0 && (
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-zinc-800">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
                             {metrics.gradesList.map((g) => (
-                              <div key={g.id} className="bg-zinc-900/40 border border-zinc-800 p-2.5 rounded">
-                                <span className="text-[10px] text-zinc-400 font-medium block">{g.component}</span>
+                              <div key={g.id} className="bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 p-2.5 rounded">
+                                <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium block">{g.component}</span>
                                 <div className="flex justify-between items-baseline mt-1">
-                                  <span className="font-mono font-semibold text-zinc-200 text-sm">{g.score}%</span>
-                                  <span className="text-[9px] text-zinc-500">wt: {(g.weight * 100).toFixed(0)}%</span>
+                                  <span className="font-mono font-semibold text-slate-800 dark:text-zinc-200 text-sm">{g.score}%</span>
+                                  <span className="text-[9px] text-slate-400 dark:text-zinc-500 font-medium">wt: {(g.weight * 100).toFixed(0)}%</span>
                                 </div>
                               </div>
                             ))}
@@ -280,22 +280,22 @@ export default function GradeBook() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Controls sidebar */}
           <div className="lg:col-span-1 flex flex-col gap-6">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-              <h3 className="font-grotesk font-semibold text-zinc-200 mb-4 text-sm flex items-center gap-1.5">
+            <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-5 shadow-sm">
+              <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 mb-4 text-sm flex items-center gap-1.5">
                 <UserCheck className="h-4 w-4 text-amber-400" />
                 Select Section
               </h3>
 
               <div className="flex flex-col gap-4">
                 <div>
-                  <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Course Code</label>
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Course Code</label>
                   <select
                     value={selectedCourseId}
                     onChange={(e) => {
                       setSelectedCourseId(e.target.value);
                       setSelectedEnrollmentId("");
                     }}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
                   >
                     <option value="">-- Choose Course --</option>
                     {facultyCourses.map((c) => (
@@ -308,11 +308,11 @@ export default function GradeBook() {
 
                 {selectedCourseId && (
                   <div>
-                    <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Student / Scholar</label>
+                    <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Student / Scholar</label>
                     <select
                       value={selectedEnrollmentId}
                       onChange={(e) => setSelectedEnrollmentId(e.target.value)}
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="">-- Choose Student --</option>
                       {courseEnrollments.map((en) => {
@@ -331,19 +331,19 @@ export default function GradeBook() {
 
             {/* Form to submit score */}
             {selectedEnrollmentId && (
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-                <h3 className="font-grotesk font-semibold text-zinc-200 mb-4 text-sm flex items-center gap-1.5">
+              <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-5 shadow-sm">
+                <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 mb-4 text-sm flex items-center gap-1.5">
                   <Percent className="h-4 w-4 text-indigo-400" />
                   Grade Component Evaluator
                 </h3>
 
                 <form onSubmit={handlePostGrade} className="flex flex-col gap-4">
                   <div>
-                    <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Grade Component</label>
+                    <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Grade Component</label>
                     <select
                       value={component}
                       onChange={(e: any) => setComponent(e.target.value)}
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
                     >
                       <option value="Assignment">Assignment</option>
                       <option value="Midterm">Midterm</option>
@@ -354,19 +354,19 @@ export default function GradeBook() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Score (0-100)</label>
+                      <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Score (0-100)</label>
                       <input
                         type="number"
                         min="0"
                         max="100"
                         value={score}
                         onChange={(e) => setScore(Number(e.target.value))}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
                         required
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-semibold text-zinc-400 block mb-1">Weight Fraction</label>
+                      <label className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block mb-1">Weight Fraction</label>
                       <input
                         type="number"
                         step="0.05"
@@ -374,7 +374,7 @@ export default function GradeBook() {
                         max="1.0"
                         value={weight}
                         onChange={(e) => setWeight(Number(e.target.value))}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded px-3 py-2 text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500"
                         required
                       />
                     </div>
@@ -383,7 +383,7 @@ export default function GradeBook() {
                   <button
                     type="submit"
                     disabled={saveGradeMutation.isPending}
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-medium py-2 rounded transition flex items-center justify-center gap-1.5 mt-2"
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs font-semibold py-2 rounded transition flex items-center justify-center gap-1.5 mt-2"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Save Evaluation Score
@@ -394,20 +394,20 @@ export default function GradeBook() {
           </div>
 
           {/* Roster & Grade overview */}
-          <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col gap-6">
+          <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-6 flex flex-col gap-6 shadow-sm dark:shadow-xl">
             {!selectedCourseId ? (
-              <div className="text-zinc-500 text-xs py-16 text-center border border-dashed border-zinc-800 rounded-lg flex flex-col items-center gap-2">
-                <CheckCircle2 className="h-8 w-8 text-zinc-600" />
+              <div className="text-slate-500 text-xs py-16 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-lg flex flex-col items-center gap-2">
+                <CheckCircle2 className="h-8 w-8 text-slate-400 dark:text-zinc-600" />
                 Select a class section from the left controls to audit scholars and post evaluations.
               </div>
             ) : (
               <div>
-                <h3 className="font-grotesk font-semibold text-sm text-zinc-200 mb-4">
+                <h3 className="font-grotesk font-semibold text-sm text-slate-800 dark:text-zinc-200 mb-4">
                   Class Roster: {courses.find((c) => c.id === selectedCourseId)?.name}
                 </h3>
 
                 {courseEnrollments.length === 0 ? (
-                  <div className="text-zinc-500 text-xs py-8 text-center bg-zinc-900 border border-zinc-800 rounded">
+                  <div className="text-slate-500 text-xs py-8 text-center bg-slate-50 border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded">
                     No students currently enrolled in this section.
                   </div>
                 ) : (
@@ -417,13 +417,13 @@ export default function GradeBook() {
                       const metrics = getCourseGradeMetrics(enroll.id);
 
                       return (
-                        <div key={enroll.id} className="rounded-lg bg-zinc-900/50 border border-zinc-800 p-4">
+                        <div key={enroll.id} className="rounded-lg bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 p-4">
                           <div className="flex justify-between items-center">
                             <div>
-                              <div className="text-sm font-medium text-zinc-200">
+                              <div className="text-sm font-medium text-slate-800 dark:text-zinc-200">
                                 {student ? student.fullName : "Unknown Scholar"}
                               </div>
-                              <div className="text-[10px] text-indigo-400 font-mono mt-0.5">
+                              <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono mt-0.5">
                                 {student ? student.email : ""}
                               </div>
                             </div>
@@ -431,36 +431,36 @@ export default function GradeBook() {
                             {metrics.totalWeight > 0 ? (
                               <div className="flex items-center gap-3">
                                 <div className="text-right">
-                                  <span className="font-mono text-xs font-semibold text-zinc-200">
+                                  <span className="font-mono text-xs font-semibold text-slate-700 dark:text-zinc-200">
                                     {metrics.average.toFixed(1)}%
                                   </span>
-                                  <span className="text-[9px] text-zinc-500 block">{(metrics.totalWeight * 100).toFixed(0)}% evaluated</span>
+                                  <span className="text-[9px] text-slate-400 dark:text-zinc-500 block">{(metrics.totalWeight * 100).toFixed(0)}% evaluated</span>
                                 </div>
                                 <span className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded ${metrics.color}`}>
                                   {metrics.letter}
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2.5 py-1 rounded">No grades recorded</span>
+                              <span className="text-[10px] bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400 px-2.5 py-1 rounded">No grades recorded</span>
                             )}
                           </div>
 
                           {/* Render component weights + actions */}
                           {metrics.gradesList.length > 0 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-zinc-800">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-zinc-800">
                               {metrics.gradesList.map((g) => (
-                                <div key={g.id} className="bg-zinc-900 border border-zinc-800/80 p-2 rounded flex justify-between items-center group">
+                                <div key={g.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800/80 p-2 rounded flex justify-between items-center group">
                                   <div>
-                                    <span className="text-[10px] text-zinc-400 font-medium block">{g.component}</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium block">{g.component}</span>
                                     <div className="flex gap-1.5 items-baseline">
-                                      <span className="font-mono font-semibold text-zinc-200 text-xs">{g.score}%</span>
-                                      <span className="text-[8px] text-zinc-500">{(g.weight * 100).toFixed(0)}%</span>
+                                      <span className="font-mono font-semibold text-slate-800 dark:text-zinc-200 text-xs">{g.score}%</span>
+                                      <span className="text-[8px] text-slate-400 dark:text-zinc-500">{(g.weight * 100).toFixed(0)}%</span>
                                     </div>
                                   </div>
                                   
                                   <button
                                     onClick={() => handleDeleteGrade(g.id)}
-                                    className="p-1 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded opacity-0 group-hover:opacity-100 transition duration-150"
+                                    className="p-1 text-slate-400 hover:text-rose-600 dark:text-zinc-500 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded opacity-0 group-hover:opacity-100 transition duration-150"
                                     title="Retract grade item"
                                   >
                                     <Trash2 className="h-3 w-3" />

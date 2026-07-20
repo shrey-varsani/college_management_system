@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState, toggleTheme, logout } from "../lib/store";
+import { RootState, toggleTheme, logout, updateUser } from "../lib/store";
 import api from "../lib/api";
 import { User, Course } from "../types";
 import {
@@ -36,7 +36,9 @@ import {
   BookOpen,
   ArrowRight,
   Unlock,
-  ChevronRight
+  ChevronRight,
+  X,
+  Check
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -71,6 +73,7 @@ export default function PrincipalDashboard() {
   const [selectedReport, setSelectedReport] = useState("student-performance");
   const [gradeCourseId, setGradeCourseId] = useState("All");
   const [remarksMap, setRemarksMap] = useState<Record<string, string>>({});
+  const [actionModal, setActionModal] = useState<{ id: string; studentName: string; status: "Approved" | "Rejected"; remarks: string } | null>(null);
 
   const { data: notifications = [], refetch: refetchNotifications } = useQuery<any[]>({
     queryKey: ["notifications"],
@@ -146,6 +149,7 @@ export default function PrincipalDashboard() {
       queryClient.invalidateQueries({ queryKey: ["exam-audit-logs"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       toast.success(res.data.message || `Leave request ${variables.status === "Approved" ? "approved" : "rejected"} successfully!`);
+      setActionModal(null);
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to update leave request status");
@@ -199,7 +203,7 @@ export default function PrincipalDashboard() {
       return await api.put("/profile/details", payload);
     },
     onSuccess: (res: any) => {
-      localStorage.setItem("college_user", JSON.stringify(res.data.user));
+      dispatch(updateUser(res.data.user));
       toast.success("Profile contact details updated successfully!");
     },
     onError: (err: any) => {
@@ -1007,7 +1011,8 @@ export default function PrincipalDashboard() {
 
             {/* 8. LEAVE AUTHORIZATION MODULE */}
             {activeModule === "leave" && (
-              <div className="flex flex-col gap-6">
+              <>
+                <div className="flex flex-col gap-6">
                 <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 shadow-sm">
                   <h3 className="font-grotesk font-semibold text-slate-800 dark:text-zinc-200 text-sm">Leave Approvals Inbox</h3>
                   <p className="text-xs text-slate-500 dark:text-zinc-400">Review pending leave applications from students and faculty coordinators.</p>
@@ -1061,13 +1066,13 @@ export default function PrincipalDashboard() {
                             </div>
                             <div className="flex gap-2 shrink-0">
                               <button
-                                onClick={() => updateLeaveStatusMutation.mutate({ id: req.id, status: "Approved", remarks: remarksMap[req.id] || "" })}
+                                onClick={() => setActionModal({ id: req.id, studentName: req.studentName, status: "Approved", remarks: remarksMap[req.id] || "" })}
                                 className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1 shadow transition cursor-pointer"
                               >
                                 <CheckCircle2 className="h-4 w-4" /> Approve
                               </button>
                               <button
-                                onClick={() => updateLeaveStatusMutation.mutate({ id: req.id, status: "Rejected", remarks: remarksMap[req.id] || "" })}
+                                onClick={() => setActionModal({ id: req.id, studentName: req.studentName, status: "Rejected", remarks: remarksMap[req.id] || "" })}
                                 className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1 shadow transition cursor-pointer"
                               >
                                 <XCircle className="h-4 w-4" /> Reject
@@ -1130,6 +1135,90 @@ export default function PrincipalDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Leave Approval/Rejection Modal */}
+              <AnimatePresence>
+                {actionModal && (
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="w-full max-w-md bg-white dark:bg-zinc-950 p-6 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl flex flex-col gap-4"
+                    >
+                      <div className="flex justify-between items-center border-b pb-3 border-slate-100 dark:border-zinc-900">
+                        <h3 className="font-grotesk font-bold text-slate-900 dark:text-zinc-100 text-sm">
+                          {actionModal.status === "Approved" ? "Approve Leave Request" : "Reject Leave Request"}
+                        </h3>
+                        <button
+                          onClick={() => setActionModal(null)}
+                          className="p-1 hover:bg-slate-100 dark:hover:bg-zinc-900 rounded-lg transition"
+                        >
+                          <X className="h-4 w-4 text-slate-500" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 font-sans">
+                          You are evaluating the leave request for student <span className="font-semibold text-slate-800 dark:text-zinc-200">{actionModal.studentName}</span>.
+                        </p>
+                        
+                        <div>
+                          <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1.5 font-sans">
+                            Approval Remarks
+                          </label>
+                          <textarea
+                            rows={3}
+                            placeholder="Provide executive decision remarks or feedback..."
+                            value={actionModal.remarks}
+                            onChange={(e) => setActionModal({ ...actionModal, remarks: e.target.value })}
+                            className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded-lg outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-zinc-950 transition font-sans"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 justify-end pt-2">
+                        <button
+                          onClick={() => setActionModal(null)}
+                          className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-850 text-slate-700 dark:text-zinc-300 text-xs font-semibold rounded-lg transition cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            updateLeaveStatusMutation.mutate({
+                              id: actionModal.id,
+                              status: actionModal.status,
+                              remarks: actionModal.remarks
+                            });
+                          }}
+                          disabled={updateLeaveStatusMutation.isPending}
+                          className={`px-3.5 py-2 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer ${
+                            actionModal.status === "Approved"
+                              ? "bg-emerald-600 hover:bg-emerald-500"
+                              : "bg-rose-600 hover:bg-rose-500"
+                          }`}
+                        >
+                          {updateLeaveStatusMutation.isPending ? "Processing..." : (
+                            <>
+                              {actionModal.status === "Approved" ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5" /> Approve Leave
+                                </>
+                              ) : (
+                                <>
+                                  <X className="h-3.5 w-3.5" /> Reject Request
+                                </>
+                              )}
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+              </>
             )}
 
             {/* 9. BULLETINS & ANNOUNCEMENTS MODULE */}

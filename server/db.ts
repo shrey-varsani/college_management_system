@@ -211,6 +211,17 @@ export interface StudentNotification {
   isRead: boolean;
 }
 
+export interface ExamSchedule {
+  id: string;
+  code: string;
+  name: string;
+  date: string;
+  session: string;
+  venue: string;
+  department?: string;
+  semester?: string;
+}
+
 interface DatabaseSchema {
   users: User[];
   courses: Course[];
@@ -228,6 +239,7 @@ interface DatabaseSchema {
   notices: Notice[];
   leaveRequests: LeaveRequest[];
   notifications: StudentNotification[];
+  examSchedules?: ExamSchedule[];
 }
 
 // Ensure the data directory exists
@@ -488,6 +500,11 @@ async function getInitialData(): Promise<DatabaseSchema> {
     notices: [],
     leaveRequests: [],
     notifications: [],
+    examSchedules: [
+      { id: "sch_1", code: "CS101", name: "Introduction to Computer Science", date: "2026-11-10", session: "Morning (09:30 - 12:30)", venue: "Lecture Hall A", department: "Computer Science", semester: "5th Semester" },
+      { id: "sch_2", code: "CS202", name: "Data Structures & Algorithms", date: "2026-11-12", session: "Morning (09:30 - 12:30)", venue: "Lecture Hall A", department: "Computer Science", semester: "5th Semester" },
+      { id: "sch_3", code: "MATH101", name: "Calculus I", date: "2026-11-16", session: "Afternoon (13:30 - 16:30)", venue: "Drawing Hall C", department: "Computer Science", semester: "5th Semester" }
+    ],
   };
 }
 
@@ -531,6 +548,13 @@ export class CollegeDatabase {
     if (!data.libraryFines) {
       data.libraryFines = [];
     }
+    if (!data.examSchedules) {
+      data.examSchedules = [
+        { id: "sch_1", code: "CS101", name: "Introduction to Computer Science", date: "2026-11-10", session: "Morning (09:30 - 12:30)", venue: "Lecture Hall A", department: "Computer Science", semester: "5th Semester" },
+        { id: "sch_2", code: "CS202", name: "Data Structures & Algorithms", date: "2026-11-12", session: "Morning (09:30 - 12:30)", venue: "Lecture Hall A", department: "Computer Science", semester: "5th Semester" },
+        { id: "sch_3", code: "MATH101", name: "Calculus I", date: "2026-11-16", session: "Afternoon (13:30 - 16:30)", venue: "Drawing Hall C", department: "Computer Science", semester: "5th Semester" }
+      ];
+    }
     return data;
   }
 
@@ -543,8 +567,94 @@ export class CollegeDatabase {
     ensureDataDir();
     if (!fs.existsSync(DB_FILE)) {
       const initial = await getInitialData();
+      initial.leaveRequests = [
+        {
+          id: "lv_seed_1",
+          studentId: "usr_student",
+          studentName: "Shrey Varsani",
+          enrollmentNo: "2024CS082",
+          branch: "Computer Science",
+          semester: "Semester V",
+          startDate: "2026-07-22",
+          endDate: "2026-07-25",
+          reason: "Attending national hackathon finale representation.",
+          status: "Pending Faculty Approval",
+          appliedOn: "2026-07-18",
+          documentName: "hackathon_invitation_letter.pdf",
+          documentUrl: "#"
+        },
+        {
+          id: "lv_seed_2",
+          studentId: "usr_student2",
+          studentName: "Jane Miller",
+          enrollmentNo: "2024MA015",
+          branch: "Mathematics",
+          semester: "Semester V",
+          startDate: "2026-07-10",
+          endDate: "2026-07-12",
+          reason: "Severe fever and medical bedrest.",
+          status: "Approved",
+          appliedOn: "2026-07-09",
+          documentName: "medical_certificate.pdf",
+          documentUrl: "#",
+          facultyRemarks: "Recommended and forwarded to Principal.",
+          facultyApprovedAt: "2026-07-09T14:32:00Z",
+          facultyId: "usr_faculty",
+          facultyName: "Dr. Elizabeth Blackwell",
+          principalRemarks: "Medical leave approved. Maintain minimum attendance post recovery.",
+          principalApprovedAt: "2026-07-10T09:15:00Z"
+        }
+      ];
       this.save(initial);
       console.log("Database seeded successfully at:", DB_FILE);
+    } else {
+      try {
+        const data = this.load();
+        if (!data.leaveRequests || data.leaveRequests.length === 0) {
+          data.leaveRequests = [
+            {
+              id: "lv_seed_1",
+              studentId: "usr_student",
+              studentName: "Shrey Varsani",
+              enrollmentNo: "2024CS082",
+              branch: "Computer Science",
+              semester: "Semester V",
+              startDate: "2026-07-22",
+              endDate: "2026-07-25",
+              reason: "Attending national hackathon finale representation.",
+              status: "Pending Faculty Approval",
+              appliedOn: "2026-07-18",
+              documentName: "hackathon_invitation_letter.pdf",
+              documentUrl: "#"
+            },
+            {
+              id: "lv_seed_2",
+              studentId: "usr_student2",
+              studentName: "Jane Miller",
+              enrollmentNo: "2024MA015",
+              branch: "Mathematics",
+              semester: "Semester V",
+              startDate: "2026-07-10",
+              endDate: "2026-07-12",
+              reason: "Severe fever and medical bedrest.",
+              status: "Approved",
+              appliedOn: "2026-07-09",
+              documentName: "medical_certificate.pdf",
+              documentUrl: "#",
+              facultyRemarks: "Recommended and forwarded to Principal.",
+              facultyApprovedAt: "2026-07-09T14:32:00Z",
+              facultyId: "usr_faculty",
+              facultyName: "Dr. Elizabeth Blackwell",
+              principalRemarks: "Medical leave approved. Maintain minimum attendance post recovery.",
+              principalApprovedAt: "2026-07-10T09:15:00Z"
+            }
+          ];
+          this.save(data);
+          console.log("Seeded default leave requests into existing database.");
+        }
+      } catch (e) {
+        console.error("Failed to seed default leave requests:", e);
+      }
     }
   }
 
@@ -707,6 +817,16 @@ export class CollegeDatabase {
   public static saveNotifications(notifications: StudentNotification[]) {
     const data = this.load();
     data.notifications = notifications;
+    this.save(data);
+  }
+
+  public static getExamSchedules(): ExamSchedule[] {
+    return this.load().examSchedules || [];
+  }
+
+  public static saveExamSchedules(schedules: ExamSchedule[]) {
+    const data = this.load();
+    data.examSchedules = schedules;
     this.save(data);
   }
 }

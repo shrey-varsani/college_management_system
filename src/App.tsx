@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Provider, useSelector, useDispatch } from "react-redux";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster, toast } from "react-hot-toast";
@@ -84,6 +84,89 @@ const queryClient = new QueryClient({
 function MainPortal() {
   const { user, sidebarOpen, theme } = useSelector((state: RootState) => state.app);
   const dispatch = useDispatch();
+
+  // Real-time app notifications polling
+  const { data: notifications = [] } = useQuery<any[]>({
+    queryKey: ["app-notifications"],
+    queryFn: async () => {
+      if (!user) return [];
+      const res = await api.get("/notifications");
+      return res.data;
+    },
+    enabled: !!user,
+    refetchInterval: 3000, // Refresh every 3 seconds for instant real-time feel!
+  });
+
+  const seenNotificationIds = useRef<Set<string>>(new Set());
+  const initialLoaded = useRef(false);
+
+  useEffect(() => {
+    if (!user) {
+      seenNotificationIds.current.clear();
+      initialLoaded.current = false;
+      return;
+    }
+
+    if (notifications.length > 0) {
+      if (!initialLoaded.current) {
+        // Mark all pre-existing notifications as seen to avoid spamming them on login/mount
+        notifications.forEach((n: any) => {
+          seenNotificationIds.current.add(n.id);
+        });
+        initialLoaded.current = true;
+      } else {
+        // Check for new, incoming unread notifications of type 'exam'
+        notifications.forEach((not: any) => {
+          if (!seenNotificationIds.current.has(not.id)) {
+            seenNotificationIds.current.add(not.id);
+
+            if (not.type === "exam" && !not.isRead) {
+              toast.custom((t) => (
+                <div
+                  className={`${
+                    t.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+                  } max-w-md w-full bg-white dark:bg-zinc-900 shadow-xl rounded-xl pointer-events-auto flex border border-indigo-200 dark:border-indigo-950 p-4 gap-3 relative overflow-hidden transition-all duration-300`}
+                >
+                  <div className="absolute top-0 left-0 h-full w-1 bg-indigo-600"></div>
+                  <div className="flex-1">
+                    <p className="text-xs font-sans font-extrabold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 uppercase tracking-wider">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+                      New Exam Results Update
+                    </p>
+                    <p className="mt-1.5 text-[11px] font-sans font-medium text-slate-700 dark:text-zinc-300 leading-relaxed">
+                      {not.message}
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => {
+                          setActiveTab("student-exams");
+                          toast.dismiss(t.id);
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold text-[10px] px-3 py-1.5 rounded-lg transition shadow-sm cursor-pointer"
+                      >
+                        View Results Desk →
+                      </button>
+                      <button
+                        onClick={() => toast.dismiss(t.id)}
+                        className="bg-slate-100 dark:bg-zinc-800/80 hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-sans font-semibold text-[10px] px-3 py-1.5 rounded-lg transition cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ), {
+                duration: Infinity,
+                id: `exam-update-${not.id}`
+              });
+            }
+          }
+        });
+      }
+    }
+  }, [notifications, user]);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   useEffect(() => {
     if (theme === "dark") {
@@ -297,7 +380,12 @@ function MainPortal() {
                         }`}
                       >
                         <Icon className="h-4 w-4" />
-                        <span>{tab.label}</span>
+                        <span className="flex-1">{tab.label}</span>
+                        {(tab.id === "student-notifications" || tab.id === "faculty-notifications") && unreadCount > 0 && (
+                          <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
+                            {unreadCount}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

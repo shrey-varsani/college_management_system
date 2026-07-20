@@ -40,12 +40,17 @@ export default function Header({ onTabChange, activeTab }: HeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="flex items-center gap-2">
+        <button
+          id="campusflow-header-logo-btn"
+          onClick={() => dispatch(toggleSidebar())}
+          className="flex items-center gap-2 hover:opacity-80 transition cursor-pointer text-left focus:outline-none"
+          title="Toggle Sidebar"
+        >
           <School className="h-6 w-6 text-indigo-500" />
           <span className="font-neon text-lg tracking-wide text-slate-900 dark:text-white">
             CampusFlow
           </span>
-        </div>
+        </button>
       </div>
 
       <div className="flex items-center gap-4">

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState, toggleTheme, logout } from "../lib/store";
+import { RootState, toggleTheme, logout, updateUser } from "../lib/store";
 import api from "../lib/api";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -82,10 +82,15 @@ export function FacultyDashboard({ onTabChange }: { onTabChange: (tabId: string)
     queryKey: ["notices"],
     queryFn: async () => (await api.get("/notices")).data
   });
+  const { data: leaves = [] } = useQuery<any[]>({
+    queryKey: ["leave-requests"],
+    queryFn: async () => (await api.get("/leave-requests")).data
+  });
 
   const facultyCourses = courses.filter(c => c.facultyId === user?.id);
   const pendingEvals = submissions.filter(s => s.status === "Submitted").length;
   const draftMarksCount = examMarks.filter(m => m.isDraft).length;
+  const pendingLeavesCount = leaves.filter(l => l.studentId !== user?.id && l.status === "Pending Faculty Approval").length;
 
   // Derive today's classes
   const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -215,6 +220,21 @@ export function FacultyDashboard({ onTabChange }: { onTabChange: (tabId: string)
                 </div>
                 <button onClick={() => onTabChange("faculty-exams")} className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[10px] px-3 py-1.5 rounded transition">Access</button>
               </div>
+
+              <div className="flex items-center justify-between p-3 border border-slate-100 dark:border-zinc-900 rounded-lg bg-slate-50/50 dark:bg-zinc-900/30">
+                <div className="flex items-start gap-2.5">
+                  <div className="p-1.5 bg-indigo-500/10 text-indigo-500 rounded mt-0.5"><ClipboardCheck className="h-4 w-4" /></div>
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-800 dark:text-zinc-200">Student Leave Applications</h4>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500">
+                      {pendingLeavesCount > 0 
+                        ? `${pendingLeavesCount} leave applications require your decision remarks.` 
+                        : "All student leave petitions are currently evaluated."}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => onTabChange("faculty-leave")} className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[10px] px-3 py-1.5 rounded transition">Review</button>
+              </div>
             </div>
           </div>
         </div>
@@ -255,6 +275,7 @@ export function FacultyDashboard({ onTabChange }: { onTabChange: (tabId: string)
 // 2. FACULTY PROFILE
 // ==========================================
 export function FacultyProfile() {
+  const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.app);
   const queryClient = useQueryClient();
   const [phone, setPhone] = useState(user?.phone || "");
@@ -273,7 +294,7 @@ export function FacultyProfile() {
     setIsSubmitting(true);
     try {
       const res = await api.put("/profile/details", { phone, address, profilePic });
-      localStorage.setItem("college_user", JSON.stringify(res.data.user));
+      dispatch(updateUser(res.data.user));
       toast.success("Profile details updated successfully!");
       queryClient.invalidateQueries({ queryKey: ["user-profile"] });
     } catch (err: any) {
@@ -1044,6 +1065,72 @@ export function FacultyExams() {
     queryFn: async () => (await api.get("/exam-marks")).data
   });
 
+  const [activeSubTab, setActiveSubTab] = useState<"marks" | "schedules">("marks");
+  
+  const { data: examSchedules = [], refetch: refetchSchedules } = useQuery<any[]>({
+    queryKey: ["exam-schedules"],
+    queryFn: async () => (await api.get("/exam-schedules")).data
+  });
+
+  // Schedule Exam States
+  const [schId, setSchId] = useState("");
+  const [schCode, setSchCode] = useState("");
+  const [schName, setSchName] = useState("");
+  const [schDate, setSchDate] = useState("");
+  const [schSession, setSchSession] = useState("Morning (09:30 - 12:30)");
+  const [schVenue, setSchVenue] = useState("");
+  const [schDept, setSchDept] = useState("Computer Science");
+  const [schSem, setSchSem] = useState("5th Semester");
+
+  const scheduleMutation = useMutation({
+    mutationFn: async (payload: any) => await api.post("/exam-schedules", payload),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["exam-schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["student-exam-schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast.success(data.data.message || "Exam schedule saved successfully!");
+      // Reset form
+      setSchId("");
+      setSchCode("");
+      setSchName("");
+      setSchDate("");
+      setSchSession("Morning (09:30 - 12:30)");
+      setSchVenue("");
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to save exam schedule.");
+    }
+  });
+
+  const handleSaveSchedule = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!schCode || !schName || !schDate || !schSession || !schVenue) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+    scheduleMutation.mutate({
+      id: schId || undefined,
+      code: schCode,
+      name: schName,
+      date: schDate,
+      session: schSession,
+      venue: schVenue,
+      department: schDept,
+      semester: schSem
+    });
+  };
+
+  const handleEditScheduleClick = (sch: any) => {
+    setSchId(sch.id);
+    setSchCode(sch.code);
+    setSchName(sch.name);
+    setSchDate(sch.date);
+    setSchSession(sch.session);
+    setSchVenue(sch.venue);
+    setSchDept(sch.department || "Computer Science");
+    setSchSem(sch.semester || "5th Semester");
+  };
+
   const facultyCourses = courses.filter(c => c.facultyId === user?.id);
   const currentCourse = courses.find(c => c.id === selectedCourseId);
   const activeCourseEnrollments = enrollments.filter(e => e.courseId === selectedCourseId && e.status === "active");
@@ -1150,129 +1237,262 @@ export function FacultyExams() {
     <div className="p-6">
       <ModuleHeader title="Examination Marks Registry Desk" subtitle="Enter internal, practical, viva, or theory marks, and save draft or finalized records." icon={Award} />
       
-      <div className="grid grid-cols-1 gap-6">
-        {/* Controls Header Card */}
-        <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-5 shadow-sm grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div>
-            <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Assigned Subject</label>
-            <select value={selectedCourseId} onChange={e => { setSelectedCourseId(e.target.value); setMarksEntries({}); }} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none">
-              <option value="">-- Choose Subject --</option>
-              {facultyCourses.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Exam Type</label>
-            <select value={examType} onChange={e => setExamType(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none">
-              <option value="Internal">Internal (CA)</option>
-              <option value="Mid Term">Mid Term Exam</option>
-              <option value="Practical">Practical Examination</option>
-              <option value="Viva">Viva / Oral Desk</option>
-              <option value="End Semester">End Semester Theory</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Academic Year</label>
-            <input type="text" value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none font-mono" />
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Target Semester</label>
-            <select value={semester} onChange={e => setSemester(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none">
-              <option value="1st Semester">1st Sem</option>
-              <option value="3rd Semester">3rd Sem</option>
-              <option value="5th Semester">5th Sem</option>
-              <option value="7th Semester">7th Sem</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Class Section</label>
-            <select value={section} onChange={e => setSection(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none font-mono">
-              <option value="A">Sec A</option>
-              <option value="B">Sec B</option>
-              <option value="C">Sec C</option>
-            </select>
-          </div>
-        </div>
+      {/* Sub tabs inside Examinations */}
+      <div className="flex border-b border-slate-200 dark:border-zinc-800 mb-6 gap-6">
+        <button
+          onClick={() => setActiveSubTab("marks")}
+          className={`pb-3 text-sm font-semibold transition-all relative ${
+            activeSubTab === "marks"
+              ? "text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400"
+              : "text-slate-400 hover:text-slate-600 dark:text-zinc-500"
+          }`}
+        >
+          Marks Entry Spreadsheet
+        </button>
+        <button
+          onClick={() => setActiveSubTab("schedules")}
+          className={`pb-3 text-sm font-semibold transition-all relative ${
+            activeSubTab === "schedules"
+              ? "text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400"
+              : "text-slate-400 hover:text-slate-600 dark:text-zinc-500"
+          }`}
+        >
+          Manage Exam Schedules
+        </button>
+      </div>
 
-        {/* Dynamic Sheet Editor */}
-        <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-6 shadow-sm flex flex-col gap-4">
-          {!selectedCourseId ? (
-            <div className="text-center py-20 text-slate-400 italic">Configure subject parameters above to launch active marks template cells.</div>
-          ) : activeCourseEnrollments.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-12">No active student enrollments found in this course.</p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 dark:border-zinc-900/80 pb-4">
-                <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider block">Registry Marks Entry Spreadsheet Cells</span>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={handleLoadExistingScores} className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-[10px] px-3 py-1.5 rounded transition">Load Current / Prefill Drafts</button>
-                  <button onClick={handleExportSpreadsheet} className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-[10px] px-3 py-1.5 rounded transition flex items-center gap-1"><Download className="h-3.5 w-3.5" /> Download Sheet Excel</button>
+      {activeSubTab === "marks" ? (
+        <div className="grid grid-cols-1 gap-6">
+          {/* Controls Header Card */}
+          <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-5 shadow-sm grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div>
+              <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Assigned Subject</label>
+              <select value={selectedCourseId} onChange={e => { setSelectedCourseId(e.target.value); setMarksEntries({}); }} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none">
+                <option value="">-- Choose Subject --</option>
+                {facultyCourses.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Exam Type</label>
+              <select value={examType} onChange={e => setExamType(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none">
+                <option value="Internal">Internal (CA)</option>
+                <option value="Mid Term">Mid Term Exam</option>
+                <option value="Practical">Practical Examination</option>
+                <option value="Viva">Viva / Oral Desk</option>
+                <option value="End Semester">End Semester Theory</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Academic Year</label>
+              <input type="text" value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none font-mono" />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Target Semester</label>
+              <select value={semester} onChange={e => setSemester(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none">
+                <option value="1st Semester">1st Sem</option>
+                <option value="3rd Semester">3rd Sem</option>
+                <option value="5th Semester">5th Sem</option>
+                <option value="7th Semester">7th Sem</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Class Section</label>
+              <select value={section} onChange={e => setSection(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none font-mono">
+                <option value="A">Sec A</option>
+                <option value="B">Sec B</option>
+                <option value="C">Sec C</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Dynamic Sheet Editor */}
+          <div className="rounded-xl border border-slate-200 bg-white dark:border-zinc-900 dark:bg-zinc-950 p-6 shadow-sm flex flex-col gap-4">
+            {!selectedCourseId ? (
+              <div className="text-center py-20 text-slate-400 italic">Configure subject parameters above to launch active marks template cells.</div>
+            ) : activeCourseEnrollments.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-12">No active student enrollments found in this course.</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 dark:border-zinc-900/80 pb-4">
+                  <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider block">Registry Marks Entry Spreadsheet Cells</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={handleLoadExistingScores} className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-[10px] px-3 py-1.5 rounded transition">Load Current / Prefill Drafts</button>
+                    <button onClick={handleExportSpreadsheet} className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-[10px] px-3 py-1.5 rounded transition flex items-center gap-1"><Download className="h-3.5 w-3.5" /> Download Sheet Excel</button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse min-w-[800px]">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-zinc-900 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th className="py-3 px-3">Scholar Name</th>
+                        <th className="py-3 px-3">Registry ID</th>
+                        <th className="py-3 px-3 text-center">Theory (0-100)</th>
+                        <th className="py-3 px-3 text-center">Practical (0-50)</th>
+                        <th className="py-3 px-3 text-center">Internal (0-30)</th>
+                        <th className="py-3 px-3 text-center">Assignment (0-20)</th>
+                        <th className="py-3 px-3 text-center">Viva / Oral (0-10)</th>
+                        <th className="py-3 px-3 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeCourseEnrollments.map((en, i) => {
+                        const studentObj = allUsers.find(u => u.id === en.studentId);
+                        const scores = marksEntries[en.studentId] || { theory: 0, practical: 0, internal: 0, assignment: 0, viva: 0 };
+                        const match = examMarks.find(m => m.studentId === en.studentId && m.courseId === selectedCourseId && m.examType === examType);
+                        const finalized = match && !match.isDraft;
+
+                        return (
+                          <tr key={i} className="border-b border-slate-100 dark:border-zinc-900/60 last:border-0 hover:bg-slate-50/40 dark:hover:bg-zinc-900/10">
+                            <td className="py-3 px-3 font-semibold text-slate-800 dark:text-zinc-200">{studentObj ? studentObj.fullName : "Unknown"}</td>
+                            <td className="py-3 px-3 font-mono text-[11px] text-slate-500">{en.studentId}</td>
+                            <td className="py-3 px-3">
+                              <input type="number" min={0} max={100} value={scores.theory} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "theory", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
+                            </td>
+                            <td className="py-3 px-3">
+                              <input type="number" min={0} max={50} value={scores.practical} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "practical", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
+                            </td>
+                            <td className="py-3 px-3">
+                              <input type="number" min={0} max={30} value={scores.internal} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "internal", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
+                            </td>
+                            <td className="py-3 px-3">
+                              <input type="number" min={0} max={20} value={scores.assignment} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "assignment", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
+                            </td>
+                            <td className="py-3 px-3">
+                              <input type="number" min={0} max={10} value={scores.viva} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "viva", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
+                            </td>
+                            <td className="py-3 px-3 text-center font-semibold font-mono">
+                              {finalized ? (
+                                <span className="text-[10px] bg-rose-500/10 text-rose-500 border border-rose-500/10 px-2 py-0.5 rounded font-bold uppercase">Locked</span>
+                              ) : match ? (
+                                <span className="text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/10 px-2 py-0.5 rounded font-bold uppercase">Draft</span>
+                              ) : (
+                                <span className="text-[10px] bg-slate-100 text-slate-500 dark:bg-zinc-900 px-2 py-0.5 rounded italic">Blank</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex gap-3 justify-end mt-4 pt-4 border-t border-slate-100 dark:border-zinc-900/80">
+                  <button onClick={() => handleSaveMarks(true)} className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-xs px-4 py-2 rounded transition">Save Draft Ledger</button>
+                  <button onClick={() => handleSaveMarks(false)} className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 py-2 rounded transition shadow-md">Finalize & Submit Marks</button>
                 </div>
               </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse min-w-[800px]">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-zinc-900 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      <th className="py-3 px-3">Scholar Name</th>
-                      <th className="py-3 px-3">Registry ID</th>
-                      <th className="py-3 px-3 text-center">Theory (0-100)</th>
-                      <th className="py-3 px-3 text-center">Practical (0-50)</th>
-                      <th className="py-3 px-3 text-center">Internal (0-30)</th>
-                      <th className="py-3 px-3 text-center">Assignment (0-20)</th>
-                      <th className="py-3 px-3 text-center">Viva / Oral (0-10)</th>
-                      <th className="py-3 px-3 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeCourseEnrollments.map((en, i) => {
-                      const studentObj = allUsers.find(u => u.id === en.studentId);
-                      const scores = marksEntries[en.studentId] || { theory: 0, practical: 0, internal: 0, assignment: 0, viva: 0 };
-                      const match = examMarks.find(m => m.studentId === en.studentId && m.courseId === selectedCourseId && m.examType === examType);
-                      const finalized = match && !match.isDraft;
-
-                      return (
-                        <tr key={i} className="border-b border-slate-100 dark:border-zinc-900/60 last:border-0 hover:bg-slate-50/40 dark:hover:bg-zinc-900/10">
-                          <td className="py-3 px-3 font-semibold text-slate-800 dark:text-zinc-200">{studentObj ? studentObj.fullName : "Unknown"}</td>
-                          <td className="py-3 px-3 font-mono text-[11px] text-slate-500">{en.studentId}</td>
-                          <td className="py-3 px-3">
-                            <input type="number" min={0} max={100} value={scores.theory} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "theory", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
-                          </td>
-                          <td className="py-3 px-3">
-                            <input type="number" min={0} max={50} value={scores.practical} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "practical", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
-                          </td>
-                          <td className="py-3 px-3">
-                            <input type="number" min={0} max={30} value={scores.internal} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "internal", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
-                          </td>
-                          <td className="py-3 px-3">
-                            <input type="number" min={0} max={20} value={scores.assignment} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "assignment", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
-                          </td>
-                          <td className="py-3 px-3">
-                            <input type="number" min={0} max={10} value={scores.viva} disabled={finalized} onChange={e => handleScoreCellChange(en.studentId, "viva", Number(e.target.value))} className="w-16 mx-auto block bg-slate-50 dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 text-center py-1 rounded focus:outline-none focus:border-indigo-500 font-mono disabled:opacity-50" />
-                          </td>
-                          <td className="py-3 px-3 text-center font-semibold font-mono">
-                            {finalized ? (
-                              <span className="text-[10px] bg-rose-500/10 text-rose-500 border border-rose-500/10 px-2 py-0.5 rounded font-bold uppercase">Locked</span>
-                            ) : match ? (
-                              <span className="text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/10 px-2 py-0.5 rounded font-bold uppercase">Draft</span>
-                            ) : (
-                              <span className="text-[10px] bg-slate-100 text-slate-500 dark:bg-zinc-900 px-2 py-0.5 rounded italic">Blank</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex gap-3 justify-end mt-4 pt-4 border-t border-slate-100 dark:border-zinc-900/80">
-                <button onClick={() => handleSaveMarks(true)} className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-xs px-4 py-2 rounded transition">Save Draft Ledger</button>
-                <button onClick={() => handleSaveMarks(false)} className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 py-2 rounded transition shadow-md">Finalize & Submit Marks</button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Exam Schedules Planner Layout */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Add/Edit Form */}
+          <div className="bg-white dark:bg-zinc-950 p-5 rounded-xl border border-slate-200 dark:border-zinc-900 shadow-sm animate-fade-in">
+            <h3 className="font-sans font-bold text-sm text-slate-900 dark:text-zinc-100 mb-4 pb-2 border-b border-slate-100 dark:border-zinc-900">
+              {schId ? "✏️ Edit Exam Schedule" : "📅 Create Exam Schedule"}
+            </h3>
+            <form onSubmit={handleSaveSchedule} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Subject Code *</label>
+                <input type="text" value={schCode} onChange={e => setSchCode(e.target.value)} placeholder="e.g. CS101" className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none font-mono font-bold" required />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Subject Name *</label>
+                <input type="text" value={schName} onChange={e => setSchName(e.target.value)} placeholder="e.g. Introduction to Computer Science" className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none" required />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Department</label>
+                  <select value={schDept} onChange={e => setSchDept(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200">
+                    <option value="Computer Science">CS</option>
+                    <option value="Information Technology">IT</option>
+                    <option value="Mechanical Engineering">Mech</option>
+                    <option value="Electrical Engineering">EE</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Semester</label>
+                  <select value={schSem} onChange={e => setSchSem(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2 py-1.5 text-xs rounded text-slate-800 dark:text-zinc-200">
+                    <option value="1st Semester">1st Sem</option>
+                    <option value="3rd Semester">3rd Sem</option>
+                    <option value="5th Semester">5th Sem</option>
+                    <option value="7th Semester">7th Sem</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Exam Date *</label>
+                <input type="date" value={schDate} onChange={e => setSchDate(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none font-mono" required />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Session *</label>
+                <select value={schSession} onChange={e => setSchSession(e.target.value)} className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-2.5 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none">
+                  <option value="Morning (09:30 - 12:30)">Morning (09:30 - 12:30)</option>
+                  <option value="Afternoon (13:30 - 16:30)">Afternoon (13:30 - 16:30)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase block mb-1">Exam Venue *</label>
+                <input type="text" value={schVenue} onChange={e => setSchVenue(e.target.value)} placeholder="e.g. Lecture Hall A" className="w-full bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded text-slate-800 dark:text-zinc-200 focus:outline-none" required />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                {schId && (
+                  <button type="button" onClick={() => { setSchId(""); setSchCode(""); setSchName(""); setSchDate(""); setSchSession("Morning (09:30 - 12:30)"); setSchVenue(""); }} className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-xs px-3 py-2 rounded transition">Cancel</button>
+                )}
+                <button type="submit" disabled={scheduleMutation.isPending} className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold text-xs px-4 py-2 rounded transition shadow-sm">
+                  {scheduleMutation.isPending ? "Saving..." : schId ? "Update Schedule" : "Add Schedule"}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Schedule List */}
+          <div className="lg:col-span-2 bg-white dark:bg-zinc-950 p-5 rounded-xl border border-slate-200 dark:border-zinc-900 shadow-sm flex flex-col">
+            <h3 className="font-sans font-bold text-sm text-slate-900 dark:text-zinc-100 mb-4 pb-2 border-b border-slate-100 dark:border-zinc-900">
+              📅 Existing Exam Schedules
+            </h3>
+            <div className="overflow-x-auto flex-grow">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-zinc-900 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
+                    <th className="py-3 px-2">Code</th>
+                    <th className="py-3 px-2">Subject Name</th>
+                    <th className="py-3 px-2">Date / Time</th>
+                    <th className="py-3 px-2">Venue</th>
+                    <th className="py-3 px-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-zinc-900 text-slate-700 dark:text-zinc-300">
+                  {examSchedules.map((sch: any) => (
+                    <tr key={sch.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-900/20 transition">
+                      <td className="py-3 px-2 font-mono font-bold text-indigo-600 dark:text-indigo-400">{sch.code}</td>
+                      <td className="py-3 px-2 font-sans">
+                        <div className="font-semibold text-slate-900 dark:text-zinc-100">{sch.name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{sch.department} • {sch.semester}</div>
+                      </td>
+                      <td className="py-3 px-2 font-mono text-slate-800 dark:text-zinc-200">
+                        <div>{sch.date}</div>
+                        <div className="text-[10px] text-slate-400">{sch.session}</div>
+                      </td>
+                      <td className="py-3 px-2 font-mono text-slate-800 dark:text-zinc-200">{sch.venue}</td>
+                      <td className="py-3 px-2 text-right">
+                        <button onClick={() => handleEditScheduleClick(sch)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">Edit</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {examSchedules.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-400 italic">No examination schedules registered yet. Use the left panel to schedule.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1496,6 +1716,7 @@ export function FacultyLeave() {
   const [reason, setReason] = useState("");
   const [activeSubTab, setActiveSubTab] = useState<"student-approvals" | "my-petitions">("student-approvals");
   const [remarksMap, setRemarksMap] = useState<Record<string, string>>({});
+  const [actionModal, setActionModal] = useState<{ id: string; studentName: string; status: "Approved" | "Rejected"; remarks: string } | null>(null);
 
   const { data: leaves = [], refetch } = useQuery<any[]>({
     queryKey: ["leave-requests"],
@@ -1527,6 +1748,7 @@ export function FacultyLeave() {
       queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       toast.success(data.message || "Updated leave status successfully!");
+      setActionModal(null);
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to update leave request status");
@@ -1630,16 +1852,16 @@ export function FacultyLeave() {
 
                       <div className="flex gap-2 justify-end">
                         <button
-                          onClick={() => updateStatusMutation.mutate({ id: lv.id, status: "Rejected", remarks: remarksMap[lv.id] || "" })}
+                          onClick={() => setActionModal({ id: lv.id, studentName: lv.studentName, status: "Rejected", remarks: remarksMap[lv.id] || "" })}
                           disabled={updateStatusMutation.isPending}
-                          className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-xs font-semibold rounded-lg transition"
+                          className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-xs font-semibold rounded-lg transition cursor-pointer"
                         >
                           Reject Request
                         </button>
                         <button
-                          onClick={() => updateStatusMutation.mutate({ id: lv.id, status: "Approved", remarks: remarksMap[lv.id] || "" })}
+                          onClick={() => setActionModal({ id: lv.id, studentName: lv.studentName, status: "Approved", remarks: remarksMap[lv.id] || "" })}
                           disabled={updateStatusMutation.isPending}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-sm transition"
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-sm transition cursor-pointer"
                         >
                           Approve & Forward
                         </button>
@@ -1760,6 +1982,89 @@ export function FacultyLeave() {
           </div>
         </div>
       )}
+
+      {/* Leave Approval/Rejection Modal */}
+      <AnimatePresence>
+        {actionModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-white dark:bg-zinc-950 p-6 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl flex flex-col gap-4"
+            >
+              <div className="flex justify-between items-center border-b pb-3 border-slate-100 dark:border-zinc-900">
+                <h3 className="font-grotesk font-bold text-slate-900 dark:text-zinc-100 text-sm">
+                  {actionModal.status === "Approved" ? "Approve & Forward Leave" : "Reject Leave Request"}
+                </h3>
+                <button
+                  onClick={() => setActionModal(null)}
+                  className="p-1 hover:bg-slate-100 dark:hover:bg-zinc-900 rounded-lg transition"
+                >
+                  <X className="h-4 w-4 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs text-slate-500 dark:text-zinc-400">
+                  You are evaluating the leave request for student <span className="font-semibold text-slate-800 dark:text-zinc-200">{actionModal.studentName}</span>.
+                </p>
+                
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1.5">
+                    Approval Remarks
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Provide specific remarks or feedback for the student..."
+                    value={actionModal.remarks}
+                    onChange={(e) => setActionModal({ ...actionModal, remarks: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-3 py-2 text-xs rounded-lg outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-zinc-950 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  onClick={() => setActionModal(null)}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-zinc-850 text-slate-700 dark:text-zinc-300 text-xs font-semibold rounded-lg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    updateStatusMutation.mutate({
+                      id: actionModal.id,
+                      status: actionModal.status,
+                      remarks: actionModal.remarks
+                    });
+                  }}
+                  disabled={updateStatusMutation.isPending}
+                  className={`px-3.5 py-2 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer ${
+                    actionModal.status === "Approved"
+                      ? "bg-indigo-600 hover:bg-indigo-500"
+                      : "bg-rose-600 hover:bg-rose-500"
+                  }`}
+                >
+                  {updateStatusMutation.isPending ? "Processing..." : (
+                    <>
+                      {actionModal.status === "Approved" ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" /> Approve & Forward
+                        </>
+                      ) : (
+                        <>
+                          <X className="h-3.5 w-3.5" /> Reject Request
+                        </>
+                      )}
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

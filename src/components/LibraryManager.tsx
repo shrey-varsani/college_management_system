@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import { LibraryBook, LibraryBorrow, LibraryReservation, LibraryFine, User } from "../types";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState, logout } from "../lib/store";
+import { RootState, logout, updateUser } from "../lib/store";
 import { 
   Library, Search, Plus, RotateCcw, UserPlus, FileText, Check, Clock, AlertCircle, 
   Trash2, Edit, Save, X, BookOpen, Users, Coins, Bell, Settings, ArrowLeftRight, 
@@ -310,7 +310,8 @@ export default function LibraryManager() {
     mutationFn: async (profileData: any) => {
       return api.put("/api/profile/details", profileData);
     },
-    onSuccess: () => {
+    onSuccess: (res: any) => {
+      dispatch(updateUser(res.data.user));
       toast.success("Librarian profile settings saved.");
     },
     onError: () => {

@@ -51,6 +51,12 @@ const appSlice = createSlice({
       localStorage.removeItem("college_token");
       localStorage.removeItem("college_user");
     },
+    updateUser: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+        localStorage.setItem("college_user", JSON.stringify(state.user));
+      }
+    },
     toggleSidebar: (state) => {
       state.sidebarOpen = !state.sidebarOpen;
     },
@@ -67,7 +73,7 @@ const appSlice = createSlice({
   },
 });
 
-export const { setAuth, logout, toggleSidebar, toggleTheme } = appSlice.actions;
+export const { setAuth, logout, updateUser, toggleSidebar, toggleTheme } = appSlice.actions;
 
 export const store = configureStore({
   reducer: {

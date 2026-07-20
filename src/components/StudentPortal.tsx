@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState, toggleTheme } from "../lib/store";
+import { RootState, toggleTheme, updateUser } from "../lib/store";
 import api from "../lib/api";
 import { toast } from "react-hot-toast";
 import { motion, AnimatePresence } from "motion/react";
@@ -69,7 +69,8 @@ export function StudentDashboard({ onTabChange }: { onTabChange: (tab: string) =
       const enrollRes = await api.get("/enrollments");
       const enrolledIds = enrollRes.data.map((e: any) => e.courseId);
       return res.data.filter((c: any) => enrolledIds.includes(c.id));
-    }
+    },
+    refetchInterval: 3000
   });
 
   const { data: attendance = [] } = useQuery<any[]>({
@@ -77,7 +78,8 @@ export function StudentDashboard({ onTabChange }: { onTabChange: (tab: string) =
     queryFn: async () => {
       const res = await api.get("/attendance");
       return res.data;
-    }
+    },
+    refetchInterval: 3000
   });
 
   const { data: assignments = [] } = useQuery<any[]>({
@@ -85,7 +87,8 @@ export function StudentDashboard({ onTabChange }: { onTabChange: (tab: string) =
     queryFn: async () => {
       const res = await api.get("/assignments");
       return res.data;
-    }
+    },
+    refetchInterval: 3000
   });
 
   const { data: notices = [] } = useQuery<any[]>({
@@ -93,7 +96,8 @@ export function StudentDashboard({ onTabChange }: { onTabChange: (tab: string) =
     queryFn: async () => {
       const res = await api.get("/notices");
       return res.data;
-    }
+    },
+    refetchInterval: 3000
   });
 
   const { data: borrows = [] } = useQuery<any[]>({
@@ -111,7 +115,8 @@ export function StudentDashboard({ onTabChange }: { onTabChange: (tab: string) =
     queryFn: async () => {
       const res = await api.get("/exam-marks");
       return res.data;
-    }
+    },
+    refetchInterval: 3000
   });
 
   // Dynamic statistics
@@ -449,6 +454,7 @@ export function StudentDashboard({ onTabChange }: { onTabChange: (tab: string) =
 // STUDENT PROFILE COMPONENT
 // ==========================================
 export function StudentProfile() {
+  const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.app);
   const [phone, setPhone] = useState(user?.phone || "");
   const [address, setAddress] = useState(user?.address || "104 Maple Street, Cambridge, MA");
@@ -463,7 +469,12 @@ export function StudentProfile() {
       const res = await api.put("/profile/details", payload);
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
+      if (data && data.user) {
+        dispatch(updateUser(data.user));
+      } else {
+        dispatch(updateUser({ phone, address, profilePic }));
+      }
       toast.success("Profile contact details updated successfully!");
     },
     onError: (err: any) => {
@@ -700,7 +711,8 @@ export function StudentAttendance() {
       const enrollRes = await api.get("/enrollments");
       const enrolledIds = enrollRes.data.map((e: any) => e.courseId);
       return res.data.filter((c: any) => enrolledIds.includes(c.id));
-    }
+    },
+    refetchInterval: 3000
   });
 
   const { data: attendance = [] } = useQuery<any[]>({
@@ -708,7 +720,8 @@ export function StudentAttendance() {
     queryFn: async () => {
       const res = await api.get("/attendance");
       return res.data;
-    }
+    },
+    refetchInterval: 3000
   });
 
   // Calculate subject-wise metrics
@@ -1321,14 +1334,33 @@ export function StudentExamination() {
   const [downloadingMark, setDownloadingMark] = useState(false);
   const [downloadingTicket, setDownloadingTicket] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [expandedMarkId, setExpandedMarkId] = useState<string | null>(null);
   const { user } = useSelector((state: RootState) => state.app);
+
+  const { data: courses = [] } = useQuery<any[]>({
+    queryKey: ["student-courses-list"],
+    queryFn: async () => {
+      const res = await api.get("/courses");
+      return res.data;
+    }
+  });
 
   const { data: examMarks = [] } = useQuery<any[]>({
     queryKey: ["student-exam-marks"],
     queryFn: async () => {
       const res = await api.get("/exam-marks");
       return res.data;
-    }
+    },
+    refetchInterval: 3000
+  });
+
+  const { data: serverSchedules = [] } = useQuery<any[]>({
+    queryKey: ["student-exam-schedules"],
+    queryFn: async () => {
+      const res = await api.get("/exam-schedules");
+      return res.data;
+    },
+    refetchInterval: 3000
   });
 
   const publishedMarks = examMarks.filter((m: any) => m.isPublished);
@@ -1671,7 +1703,7 @@ export function StudentExamination() {
     }, 1500);
   };
 
-  const examSchedule = [
+  const examSchedule = serverSchedules.length > 0 ? serverSchedules : [
     { code: "CS101", name: "Introduction to Computer Science", date: "2026-11-10", session: "Morning (09:30 - 12:30)", venue: "Lecture Hall A" },
     { code: "CS202", name: "Data Structures & Algorithms", date: "2026-11-12", session: "Morning (09:30 - 12:30)", venue: "Lecture Hall A" },
     { code: "MATH101", name: "Calculus I", date: "2026-11-16", session: "Afternoon (13:30 - 16:30)", venue: "Drawing Hall C" }
@@ -1944,24 +1976,13 @@ export function StudentExamination() {
 
             </div>
 
-            {/* Print button below preview */}
-            <div className="flex justify-center gap-3 mt-6 pt-6 border-t border-slate-100 dark:border-zinc-800">
+            {/* Close Preview action button */}
+            <div className="flex justify-center mt-6 pt-6 border-t border-slate-100 dark:border-zinc-800">
               <button
-                onClick={() => {
-                  toast.success("Opening standard print window...");
-                  window.print();
-                }}
-                className="bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold px-5 py-2.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm"
+                onClick={() => setShowPreview(false)}
+                className="bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-semibold px-6 py-2 rounded-lg text-xs transition cursor-pointer"
               >
-                <Printer className="h-3.5 w-3.5" />
-                Print Admit Card
-              </button>
-              <button
-                onClick={handleDownloadHallTicket}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-5 py-2.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download Admit Card HTML File
+                Close Preview
               </button>
             </div>
           </motion.div>
@@ -2002,37 +2023,155 @@ export function StudentExamination() {
 
         {/* Exam Results Published (Published only) */}
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm">
-          <h3 className="font-sans font-bold text-sm text-slate-950 dark:text-zinc-50 mb-4 pb-2 border-b border-slate-100 dark:border-zinc-800">
-            Published Semester Evaluations
-          </h3>
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100 dark:border-zinc-800">
+            <h3 className="font-sans font-bold text-sm text-slate-950 dark:text-zinc-50">
+              Published Semester Evaluations
+            </h3>
+            <span className="text-[10px] text-slate-400 font-sans italic bg-slate-100 dark:bg-zinc-800/60 px-2 py-0.5 rounded">
+              💡 Click any row to view breakdown
+            </span>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left font-sans text-xs">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-zinc-800 text-slate-400 font-mono text-[10px] uppercase">
-                  <th className="py-3">Subject ID</th>
+                  <th className="py-3">Subject</th>
                   <th className="py-3 text-center">Score</th>
                   <th className="py-3 text-center">Grade</th>
                   <th className="py-3 text-right">Result status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 text-slate-700 dark:text-zinc-300">
-                {publishedMarks.map((m) => (
-                  <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-950/20 transition">
-                    <td className="py-3 font-mono font-medium text-slate-900 dark:text-zinc-150">{m.courseId}</td>
-                    <td className="py-3 text-center font-mono">{m.totalMarks} / 100</td>
-                    <td className="py-3 text-center font-mono font-bold text-indigo-600 dark:text-indigo-400">{m.grade}</td>
-                    <td className="py-3 text-right">
-                      <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] ${
-                        m.status === "Pass" 
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                      }`}>
-                        {m.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {publishedMarks.map((m) => {
+                  const isExpanded = expandedMarkId === m.id;
+                  const courseObj = courses.find((c: any) => c.id === m.courseId || c.code === m.courseId);
+                  const courseDisplayName = courseObj ? `${courseObj.code} - ${courseObj.name}` : m.courseId;
+
+                  return (
+                    <Fragment key={m.id}>
+                      <tr 
+                        onClick={() => setExpandedMarkId(isExpanded ? null : m.id)}
+                        className={`hover:bg-slate-50/50 dark:hover:bg-zinc-950/20 transition cursor-pointer select-none ${isExpanded ? "bg-slate-50/80 dark:bg-zinc-950/20" : ""}`}
+                      >
+                        <td className="py-3 font-medium text-slate-900 dark:text-zinc-150">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] text-slate-400 font-mono inline-block w-3 text-center">
+                              {isExpanded ? "▼" : "▶"}
+                            </span>
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-slate-900 dark:text-zinc-100">{courseDisplayName}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">{m.examType || "Term Evaluation"} • {m.academicYear}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 text-center font-mono font-bold text-slate-800 dark:text-zinc-200">
+                          {m.totalMarks} / 100
+                        </td>
+                        <td className="py-3 text-center font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                          {m.grade}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] ${
+                            m.status === "Pass" 
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                          }`}>
+                            {m.status}
+                          </span>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={4} className="bg-slate-50/40 dark:bg-zinc-950/40 px-4 py-4 border-b border-slate-100 dark:border-zinc-800">
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+                              {/* Theory Marks */}
+                              <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 shadow-sm">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Theory</p>
+                                <p className="text-sm font-bold font-mono text-slate-800 dark:text-zinc-100 mt-1">
+                                  {m.theoryMarks} <span className="text-[10px] text-slate-400">/ {m.maxTheory || 100}</span>
+                                </p>
+                                <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1 rounded-full mt-2 overflow-hidden">
+                                  <div 
+                                    className="bg-indigo-600 h-full rounded-full" 
+                                    style={{ width: `${Math.min(100, (m.theoryMarks / (m.maxTheory || 100)) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Practical Marks */}
+                              <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 shadow-sm">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Practical</p>
+                                <p className="text-sm font-bold font-mono text-slate-800 dark:text-zinc-100 mt-1">
+                                  {m.practicalMarks} <span className="text-[10px] text-slate-400">/ {m.maxPractical || 50}</span>
+                                </p>
+                                <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1 rounded-full mt-2 overflow-hidden">
+                                  <div 
+                                    className="bg-emerald-500 h-full rounded-full" 
+                                    style={{ width: `${Math.min(100, (m.practicalMarks / (m.maxPractical || 50)) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Internal Marks */}
+                              <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 shadow-sm">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Internal (CA)</p>
+                                <p className="text-sm font-bold font-mono text-slate-800 dark:text-zinc-100 mt-1">
+                                  {m.internalMarks} <span className="text-[10px] text-slate-400">/ {m.maxInternal || 30}</span>
+                                </p>
+                                <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1 rounded-full mt-2 overflow-hidden">
+                                  <div 
+                                    className="bg-indigo-500 h-full rounded-full" 
+                                    style={{ width: `${Math.min(100, (m.internalMarks / (m.maxInternal || 30)) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Assignment Marks */}
+                              <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 shadow-sm">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Assignment</p>
+                                <p className="text-sm font-bold font-mono text-slate-800 dark:text-zinc-100 mt-1">
+                                  {m.assignmentMarks} <span className="text-[10px] text-slate-400">/ {m.maxAssignment || 20}</span>
+                                </p>
+                                <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1 rounded-full mt-2 overflow-hidden">
+                                  <div 
+                                    className="bg-amber-500 h-full rounded-full" 
+                                    style={{ width: `${Math.min(100, (m.assignmentMarks / (m.maxAssignment || 20)) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Viva / Oral Marks */}
+                              <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 shadow-sm">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Viva / Oral</p>
+                                <p className="text-sm font-bold font-mono text-slate-800 dark:text-zinc-100 mt-1">
+                                  {m.vivaMarks} <span className="text-[10px] text-slate-400">/ {m.maxViva || 10}</span>
+                                </p>
+                                <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1 rounded-full mt-2 overflow-hidden">
+                                  <div 
+                                    className="bg-purple-500 h-full rounded-full" 
+                                    style={{ width: `${Math.min(100, (m.vivaMarks / (m.maxViva || 10)) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400 border-t border-slate-100 dark:border-zinc-800/80 pt-2 font-mono">
+                              <div>
+                                <span>Percentage: <strong className="text-slate-800 dark:text-zinc-200">{m.percentage}%</strong></span>
+                                <span className="mx-2">•</span>
+                                <span>Academic Year: <strong className="text-slate-800 dark:text-zinc-200">{m.academicYear}</strong></span>
+                              </div>
+                              <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-950 px-2 py-0.5 rounded font-sans font-medium">
+                                Checked by Assigned Professor
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
                 {publishedMarks.length === 0 && (
                   <tr>
                     <td colSpan={4} className="py-10 text-center text-slate-400 dark:text-zinc-500 font-mono">

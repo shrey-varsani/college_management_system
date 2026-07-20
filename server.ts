@@ -584,6 +584,21 @@ app.post("/api/attendance", authenticateToken, authorizeRoles("faculty", "princi
         attendance[existingIndex].studentId = student.id;
       }
       CollegeDatabase.saveAttendance(attendance);
+
+      if (student) {
+        const notifications = CollegeDatabase.getNotifications();
+        notifications.push({
+          id: "not_" + Math.random().toString(36).substr(2, 9),
+          studentId: student.id,
+          title: "Attendance Updated",
+          message: `Your attendance for "${course.code} - ${course.name}" on ${date} has been marked as "${status}".`,
+          type: "attendance",
+          timestamp: new Date().toISOString(),
+          isRead: false
+        });
+        CollegeDatabase.saveNotifications(notifications);
+      }
+
       return res.json({ message: "Attendance record updated successfully", record: attendance[existingIndex] });
     }
 
@@ -601,6 +616,20 @@ app.post("/api/attendance", authenticateToken, authorizeRoles("faculty", "princi
 
     attendance.push(newRecord);
     CollegeDatabase.saveAttendance(attendance);
+
+    if (student) {
+      const notifications = CollegeDatabase.getNotifications();
+      notifications.push({
+        id: "not_" + Math.random().toString(36).substr(2, 9),
+        studentId: student.id,
+        title: "Attendance Recorded",
+        message: `Your attendance for "${course.code} - ${course.name}" on ${date} has been marked as "${status}".`,
+        type: "attendance",
+        timestamp: new Date().toISOString(),
+        isRead: false
+      });
+      CollegeDatabase.saveNotifications(notifications);
+    }
 
     res.status(201).json({ message: "Attendance registered successfully", record: newRecord });
   } catch (error: any) {
@@ -809,6 +838,28 @@ app.post("/api/exam-marks", authenticateToken, authorizeRoles("faculty", "princi
     // Save back to DB
     CollegeDatabase.saveExamMarks(updatedEntries);
 
+    // Notify students of updated/created exam marks
+    try {
+      const notifications = CollegeDatabase.getNotifications();
+      for (const record of savedRecords) {
+        const course = courses.find(c => c.id === record.courseId);
+        const courseLabel = course ? `${course.code} - ${course.name}` : record.courseId;
+        const stateWord = record.isDraft ? "draft" : "finalized";
+        notifications.push({
+          id: "not_" + Math.random().toString(36).substr(2, 9),
+          studentId: record.studentId,
+          title: record.isDraft ? "Exam Marks Draft Updated" : "Exam Marks Submitted",
+          message: `Your ${stateWord} exam marks for "${courseLabel}" (${record.examType}) have been updated. Grade: ${record.grade}, Total Score: ${record.totalMarks}.`,
+          type: "exam",
+          timestamp: new Date().toISOString(),
+          isRead: false
+        });
+      }
+      CollegeDatabase.saveNotifications(notifications);
+    } catch (notifErr: any) {
+      console.error("Failed to push exam marks notifications:", notifErr);
+    }
+
     // Write audit log
     const auditAction = entries[0].isDraft ? "Draft Saved" : "Final Submission";
     const courseNames = entries.map(e => courses.find(c => c.id === e.courseId)?.code).filter(Boolean);
@@ -832,6 +883,78 @@ app.post("/api/exam-marks", authenticateToken, authorizeRoles("faculty", "princi
   }
 });
 
+// ==========================================
+// EXAM SCHEDULES ENDPOINTS
+// ==========================================
+app.get("/api/exam-schedules", authenticateToken, (req, res) => {
+  try {
+    const schedules = CollegeDatabase.getExamSchedules();
+    res.json(schedules);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to load exam schedules", error: error.message });
+  }
+});
+
+app.post("/api/exam-schedules", authenticateToken, authorizeRoles("faculty", "principal"), (req, res) => {
+  try {
+    const { id, code, name, date, session, venue, department, semester } = req.body;
+    if (!code || !name || !date || !session || !venue) {
+      return res.status(400).json({ message: "Incomplete exam schedule details provided" });
+    }
+
+    const schedules = CollegeDatabase.getExamSchedules();
+    let isUpdate = false;
+    let targetId = id;
+
+    if (id) {
+      const idx = schedules.findIndex(s => s.id === id);
+      if (idx !== -1) {
+        schedules[idx] = { id, code, name, date, session, venue, department, semester };
+        isUpdate = true;
+      } else {
+        schedules.push({ id, code, name, date, session, venue, department, semester });
+      }
+    } else {
+      targetId = "sch_" + Math.random().toString(36).substr(2, 9);
+      schedules.push({ id: targetId, code, name, date, session, venue, department, semester });
+    }
+
+    CollegeDatabase.saveExamSchedules(schedules);
+
+    // Create notifications for all students
+    try {
+      const users = CollegeDatabase.getUsers();
+      const students = users.filter(u => u.role === "student");
+      const notifications = CollegeDatabase.getNotifications();
+
+      const title = isUpdate ? "Exam Schedule Updated" : "New Exam Scheduled";
+      const message = isUpdate 
+        ? `The exam schedule for ${code} - ${name} has been updated. Date: ${date}, Session: ${session}, Venue: ${venue}.`
+        : `A new exam has been scheduled for ${code} - ${name} on ${date} (${session}) at ${venue}.`;
+
+      students.forEach(st => {
+        notifications.push({
+          id: "not_" + Math.random().toString(36).substr(2, 9),
+          studentId: st.id,
+          title,
+          message,
+          type: "exam",
+          timestamp: new Date().toISOString(),
+          isRead: false
+        });
+      });
+
+      CollegeDatabase.saveNotifications(notifications);
+    } catch (notifErr: any) {
+      console.error("Failed to push exam schedule notifications:", notifErr);
+    }
+
+    res.json({ message: isUpdate ? "Exam schedule updated successfully" : "Exam schedule created successfully", scheduleId: targetId });
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to save exam schedule", error: error.message });
+  }
+});
+
 // Toggle Publish results (Principal only)
 app.post("/api/exam-marks/publish-toggle", authenticateToken, authorizeRoles("principal"), (req, res) => {
   try {
@@ -852,6 +975,27 @@ app.post("/api/exam-marks/publish-toggle", authenticateToken, authorizeRoles("pr
     });
 
     CollegeDatabase.saveExamMarks(updated);
+
+    if (publish) {
+      try {
+        const notifications = CollegeDatabase.getNotifications();
+        const targetRecords = marks.filter(m => recordIds.includes(m.id));
+        targetRecords.forEach(m => {
+          notifications.push({
+            id: "not_" + Math.random().toString(36).substr(2, 9),
+            studentId: m.studentId,
+            title: "Exam Results Published",
+            message: `Your final semester evaluation results for "${m.courseId}" (${m.examType}) have been officially published. Grade: ${m.grade}, Score: ${m.totalMarks}/100.`,
+            type: "exam",
+            timestamp: new Date().toISOString(),
+            isRead: false
+          });
+        });
+        CollegeDatabase.saveNotifications(notifications);
+      } catch (pubErr: any) {
+        console.error("Failed to push exam marks publication notifications:", pubErr);
+      }
+    }
 
     // Audit log
     const auditLogs = CollegeDatabase.getExamAuditLogs();
